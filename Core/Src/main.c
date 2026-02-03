@@ -44,6 +44,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 __IO uint32_t BspButtonState = BUTTON_RELEASED;
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+UART_HandleTypeDef hlpuart1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim5;
@@ -106,19 +110,23 @@ const osSemaphoreAttr_t adcSemaphore_attributes = {
 /* USER CODE BEGIN PV */
 typedef enum {
     MOTOR_STOP = 0,
-    MOTOR_RUN,
-	MOTOR_REVERSE
+    MOTOR_CW,
+    MOTOR_CCW
 } MotorState_t;
 
-volatile MotorState_t motorState = MOTOR_STOP;
+volatile MotorState_t uiMotorState = MOTOR_STOP;
+volatile uint32_t uiPwmDuty = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_LPUART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartSysStatusTask(void *argument);
 void StartLoggerTask(void *argument);
@@ -164,9 +172,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_ICACHE_Init();
   MX_TIM1_Init();
   MX_TIM5_Init();
+  MX_ADC1_Init();
+  MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -318,6 +329,73 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
   * @brief ICACHE Initialization Function
   * @param None
   * @retval None
@@ -350,6 +428,54 @@ static void MX_ICACHE_Init(void)
 }
 
 /**
+  * @brief LPUART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPUART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN LPUART1_Init 0 */
+
+  /* USER CODE END LPUART1_Init 0 */
+
+  /* USER CODE BEGIN LPUART1_Init 1 */
+
+  /* USER CODE END LPUART1_Init 1 */
+  hlpuart1.Instance = LPUART1;
+  hlpuart1.Init.BaudRate = 115200;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_8B;
+  hlpuart1.Init.StopBits = UART_STOPBITS_1;
+  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Mode = UART_MODE_TX_RX;
+  hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  hlpuart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  hlpuart1.FifoMode = UART_FIFOMODE_DISABLE;
+  if (HAL_UART_Init(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&hlpuart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&hlpuart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPUART1_Init 2 */
+
+  /* USER CODE END LPUART1_Init 2 */
+
+}
+
+/**
   * @brief TIM1 Initialization Function
   * @param None
   * @retval None
@@ -362,7 +488,8 @@ static void MX_TIM1_Init(void)
   /* USER CODE END TIM1_Init 0 */
 
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
@@ -374,7 +501,7 @@ static void MX_TIM1_Init(void)
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -385,17 +512,38 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.BreakAFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
+  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+  sBreakDeadTimeConfig.Break2Filter = 0;
+  sBreakDeadTimeConfig.Break2AFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
 
 }
 
@@ -449,6 +597,23 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -471,12 +636,6 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PC0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE15 */
   GPIO_InitStruct.Pin = GPIO_PIN_15;
@@ -585,6 +744,8 @@ void startButtonTask(void *argument)
 
 	const char *eventMsg = "[EVENT] Button pressed\r\n";
 	static uint8_t ledSuspended = 0;
+	uint32_t adcValue = 0;
+	MotorState_t newState;
 
 	/* Infinite loop */
 	for(;;)
@@ -608,8 +769,28 @@ void startButtonTask(void *argument)
 		}
 
 		// Activate buzzer for 100ms using one-shot timer
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);      // Turn on buzzer
-		osTimerStart(buzzerTimerHandle, 100);                     // Schedule buzzer off in 100ms
+		__HAL_TIM_SET_COMPARE(&htim5, TIM_CHANNEL_1, htim5.Init.Period / 2); // 50% duty
+		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
+
+		// Stop buzzer after 100ms
+		osTimerStart(buzzerTimerHandle, 100);
+
+		HAL_ADC_Start_IT(&hadc1);
+		if (osSemaphoreAcquire(adcSemaphoreHandle, pdMS_TO_TICKS(5)) == osOK)
+		{
+			adcValue = HAL_ADC_GetValue(&hadc1);
+
+			// Map ADC to motor state
+			if (adcValue == 0)
+			    newState = MOTOR_STOP;
+			else if (adcValue < 2048)
+			    newState = MOTOR_CCW;
+			else
+			    newState = MOTOR_CW;
+
+			uiMotorState = newState;
+			uiPwmDuty = (newState == MOTOR_STOP) ? 0 : (adcValue * htim1.Init.Period) / 4095;
+		}
 	}
   /* USER CODE END startButtonTask */
 }
@@ -624,68 +805,63 @@ void startButtonTask(void *argument)
 void StartMotorTask(void *argument)
 {
   /* USER CODE BEGIN StartMotorTask */
-  /* Infinite loop */
-	  uint32_t adcValue = 0;
-	  uint32_t pwmDuty = 0;
 
-	  // Initialize motor and LEDs
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-	  BSP_LED_On(LED_RED);
-	  BSP_LED_Off(LED_GREEN);
-	  BSP_LED_Off(LED_BLUE);
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xPeriod = pdMS_TO_TICKS(15); // 15 ms periodic update
 
-	  // Start ADC in interrupt mode
-	  HAL_ADC_Start_IT(&hadc1);
+    // Start PWM timer
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 
-	  for(;;)
-	  {
-		  // Wait for ADC conversion to complete (released in HAL_ADC_ConvCpltCallback)
-		  if(osSemaphoreAcquire(adcSemaphoreHandle, osWaitForever) == osOK)
-		  {
-			  // Read the ADC value
-			  adcValue = HAL_ADC_GetValue(&hadc1);
+    // Initialize motor outputs and LEDs to STOP
+    uiMotorState = MOTOR_STOP;
+    uint32_t pwmDuty = 0;
 
-			  // Compute PWM duty cycle
-			  pwmDuty = (adcValue * htim1.Init.Period) / 4095;
-			  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);      // STB
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET); // Direction
+    BSP_LED_On(LED_RED);
+    BSP_LED_Off(LED_GREEN);
+    BSP_LED_Off(LED_BLUE);
 
-			  // Determine new motor state
-			  MotorState_t newState;
-			  if(adcValue == 0) newState = MOTOR_STOP;
-			  else if(adcValue < 2048) newState = MOTOR_REVERSE;
-			  else newState = MOTOR_RUN;  // FORWARD
+    for (;;)
+    {
+        // Apply motor outputs based on current motorState and pwmDuty
+        switch (uiMotorState)
+        {
+            case MOTOR_STOP:
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);      // STB
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET); // Direction
+                BSP_LED_On(LED_RED);
+                BSP_LED_Off(LED_GREEN);
+                BSP_LED_Off(LED_BLUE);
+                break;
 
-			  // Update motor only if state changed
-			  if(newState != motorState)
-			  {
-				  motorState = newState;  // global
+            case MOTOR_CW:
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);        // STB
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+                BSP_LED_Off(LED_RED);
+                BSP_LED_On(LED_GREEN);
+                BSP_LED_Off(LED_BLUE);
+                break;
 
-				  switch(motorState)
-				  {
-					  case MOTOR_STOP:
-						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
-						  BSP_LED_On(LED_RED);
-						  BSP_LED_Off(LED_GREEN);
-						  BSP_LED_Off(LED_BLUE);
-						  break;
-					  case MOTOR_RUN:
-						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
-						  BSP_LED_Off(LED_RED);
-						  BSP_LED_On(LED_GREEN);
-						  BSP_LED_Off(LED_BLUE);
-						  break;
-					  case MOTOR_REVERSE:
-						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
-						  BSP_LED_Off(LED_RED);
-						  BSP_LED_Off(LED_GREEN);
-						  BSP_LED_On(LED_BLUE);
-						  break;
-				  }
-			  }
-		  }
-	  }
+            case MOTOR_CCW:
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);        // STB
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+                BSP_LED_Off(LED_RED);
+                BSP_LED_Off(LED_GREEN);
+                BSP_LED_On(LED_BLUE);
+                break;
+        }
+
+        // Wait for next period (non-blocking, precise timing)
+        vTaskDelayUntil(&xLastWakeTime, xPeriod);
+    }
+
   /* USER CODE END StartMotorTask */
 }
 
@@ -693,7 +869,7 @@ void StartMotorTask(void *argument)
 void BuzzerTimerCallback(void *argument)
 {
   /* USER CODE BEGIN BuzzerTimerCallback */
-	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+	HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
   /* USER CODE END BuzzerTimerCallback */
 }
 
@@ -707,6 +883,7 @@ void BSP_PB_Callback(Button_TypeDef Button)
   if (Button == BUTTON_USER)
   {
     BspButtonState = BUTTON_PRESSED;
+    osSemaphoreRelease(buttonSemaphoreHandle);
   }
 }
 
@@ -735,8 +912,13 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+void BSP_PB_Callback(Button_TypeDef Button)
+{
+  if (Button == BUTTON_USER)
+  {
+	  osSemaphoreRelease(buttonSemaphoreHandle);
+  }
+}
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
