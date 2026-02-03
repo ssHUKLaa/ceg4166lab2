@@ -44,8 +44,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 __IO uint32_t BspButtonState = BUTTON_RELEASED;
+ADC_HandleTypeDef hadc1;
 
 UART_HandleTypeDef hlpuart1;
+
+TIM_HandleTypeDef htim1;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -75,18 +78,41 @@ const osThreadAttr_t buttonTask_attributes = {
   .priority = (osPriority_t) osPriorityLow,
   .stack_size = 128 * 4
 };
+/* Definitions for MotorTask */
+osThreadId_t MotorTaskHandle;
+const osThreadAttr_t MotorTask_attributes = {
+  .name = "MotorTask",
+  .priority = (osPriority_t) osPriorityAboveNormal,
+  .stack_size = 128 * 4
+};
 /* Definitions for logQueue */
 osMessageQueueId_t logQueueHandle;
 const osMessageQueueAttr_t logQueue_attributes = {
   .name = "logQueue"
+};
+/* Definitions for buzzerTimer */
+osTimerId_t buzzerTimerHandle;
+const osTimerAttr_t buzzerTimer_attributes = {
+  .name = "buzzerTimer"
 };
 /* Definitions for buttonSemaphore */
 osSemaphoreId_t buttonSemaphoreHandle;
 const osSemaphoreAttr_t buttonSemaphore_attributes = {
   .name = "buttonSemaphore"
 };
+/* Definitions for adcSemaphore */
+osSemaphoreId_t adcSemaphoreHandle;
+const osSemaphoreAttr_t adcSemaphore_attributes = {
+  .name = "adcSemaphore"
+};
 /* USER CODE BEGIN PV */
+typedef enum {
+    MOTOR_STOP = 0,
+    MOTOR_RUN,
+	MOTOR_REVERSE
+} MotorState_t;
 
+volatile MotorState_t motorState = MOTOR_STOP;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,10 +120,14 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_LPUART1_UART_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_ADC1_Init(void);
 void StartDefaultTask(void *argument);
 void StartSysStatusTask(void *argument);
 void StartLoggerTask(void *argument);
 void startButtonTask(void *argument);
+void StartMotorTask(void *argument);
+void BuzzerTimerCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -139,6 +169,8 @@ int main(void)
   MX_GPIO_Init();
   MX_ICACHE_Init();
   MX_LPUART1_UART_Init();
+  MX_TIM1_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -154,9 +186,16 @@ int main(void)
   /* creation of buttonSemaphore */
   buttonSemaphoreHandle = osSemaphoreNew(1, 0, &buttonSemaphore_attributes);
 
+  /* creation of adcSemaphore */
+  adcSemaphoreHandle = osSemaphoreNew(1, 0, &adcSemaphore_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
+
+  /* Create the timer(s) */
+  /* creation of buzzerTimer */
+  buzzerTimerHandle = osTimerNew(BuzzerTimerCallback, osTimerOnce, NULL, &buzzerTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -182,6 +221,9 @@ int main(void)
 
   /* creation of buttonTask */
   buttonTaskHandle = osThreadNew(startButtonTask, NULL, &buttonTask_attributes);
+
+  /* creation of MotorTask */
+  MotorTaskHandle = osThreadNew(StartMotorTask, NULL, &MotorTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -222,17 +264,6 @@ int main(void)
   {
 
     /* -- Sample board code for User push-button in interrupt mode ---- */
-    if (BspButtonState == BUTTON_PRESSED)
-    {
-      /* Update button state */
-      BspButtonState = BUTTON_RELEASED;
-      /* -- Sample board code to toggle leds ---- */
-      BSP_LED_Toggle(LED_GREEN);
-      BSP_LED_Toggle(LED_BLUE);
-      BSP_LED_Toggle(LED_RED);
-
-      /* ..... Perform your action ..... */
-    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -288,6 +319,73 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_24CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -371,6 +469,78 @@ static void MX_LPUART1_UART_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.BreakAFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
+  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+  sBreakDeadTimeConfig.Break2Filter = 0;
+  sBreakDeadTimeConfig.Break2AFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -385,10 +555,31 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PE15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB10 PB11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC7 */
   GPIO_InitStruct.Pin = GPIO_PIN_7;
@@ -488,29 +679,132 @@ void startButtonTask(void *argument)
 {
   /* USER CODE BEGIN startButtonTask */
 
-	static uint8_t ledSuspended = 0;
 	const char *eventMsg = "[EVENT] Button pressed\r\n";
-  /* Infinite loop */
-  for(;;)
-  {
-	  osSemaphoreAcquire(buttonSemaphoreHandle, osWaitForever);
+	static uint8_t ledSuspended = 0;
 
-	  osMessageQueuePut(logQueueHandle, &eventMsg, 0, 0);
+	/* Infinite loop */
+	for(;;)
+	{
+		// Wait for button press (blocks efficiently on semaphore)
+		osSemaphoreAcquire(buttonSemaphoreHandle, osWaitForever);
 
-	  if (ledSuspended)
-	  {
-		vTaskResume(SysStatusTasHandle);
-		ledSuspended = 0;
-	  }
-	  else
-	  {
-		vTaskSuspend(SysStatusTasHandle);
-		ledSuspended = 1;
-	  }
-  }
+		// Log button press
+		osMessageQueuePut(logQueueHandle, &eventMsg, 0, 0);
+
+		// Toggle SysStatusTask LED
+		if(ledSuspended)
+		{
+			vTaskResume(SysStatusTasHandle);
+			ledSuspended = 0;
+		}
+		else
+		{
+			vTaskSuspend(SysStatusTasHandle);
+			ledSuspended = 1;
+		}
+
+		// Activate buzzer for 100ms using one-shot timer
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);      // Turn on buzzer
+		osTimerStart(buzzerTimerHandle, 100);                     // Schedule buzzer off in 100ms
+	}
   /* USER CODE END startButtonTask */
 }
 
+/* USER CODE BEGIN Header_StartMotorTask */
+/**
+* @brief Function implementing the MotorTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartMotorTask */
+void StartMotorTask(void *argument)
+{
+  /* USER CODE BEGIN StartMotorTask */
+  /* Infinite loop */
+	  uint32_t adcValue = 0;
+	  uint32_t pwmDuty = 0;
+
+	  // Initialize motor and LEDs
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+	  BSP_LED_On(LED_RED);
+	  BSP_LED_Off(LED_GREEN);
+	  BSP_LED_Off(LED_BLUE);
+
+	  // Start ADC in interrupt mode
+	  HAL_ADC_Start_IT(&hadc1);
+
+	  for(;;)
+	  {
+		  // Wait for ADC conversion to complete (released in HAL_ADC_ConvCpltCallback)
+		  if(osSemaphoreAcquire(adcSemaphoreHandle, osWaitForever) == osOK)
+		  {
+			  // Read the ADC value
+			  adcValue = HAL_ADC_GetValue(&hadc1);
+
+			  // Compute PWM duty cycle
+			  pwmDuty = (adcValue * htim1.Init.Period) / 4095;
+			  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+
+			  // Determine new motor state
+			  MotorState_t newState;
+			  if(adcValue == 0) newState = MOTOR_STOP;
+			  else if(adcValue < 2048) newState = MOTOR_REVERSE;
+			  else newState = MOTOR_RUN;  // FORWARD
+
+			  // Update motor only if state changed
+			  if(newState != motorState)
+			  {
+				  motorState = newState;  // global
+
+				  switch(motorState)
+				  {
+					  case MOTOR_STOP:
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
+						  BSP_LED_On(LED_RED);
+						  BSP_LED_Off(LED_GREEN);
+						  BSP_LED_Off(LED_BLUE);
+						  break;
+					  case MOTOR_RUN:
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+						  BSP_LED_Off(LED_RED);
+						  BSP_LED_On(LED_GREEN);
+						  BSP_LED_Off(LED_BLUE);
+						  break;
+					  case MOTOR_REVERSE:
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+						  BSP_LED_Off(LED_RED);
+						  BSP_LED_Off(LED_GREEN);
+						  BSP_LED_On(LED_BLUE);
+						  break;
+				  }
+			  }
+		  }
+	  }
+  /* USER CODE END StartMotorTask */
+}
+
+/* BuzzerTimerCallback function */
+void BuzzerTimerCallback(void *argument)
+{
+  /* USER CODE BEGIN BuzzerTimerCallback */
+	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+  /* USER CODE END BuzzerTimerCallback */
+}
+/* USER CODE BEGIN 4 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if(hadc->Instance == ADC1)
+    {
+        // Release semaphore to wake MotorTask
+        osSemaphoreRelease(adcSemaphoreHandle);
+
+        // Restart ADC in interrupt mode for next conversion
+        HAL_ADC_Start_IT(hadc);
+    }
+}
+/* USER CODE END 4 */
 /**
   * @brief BSP Push Button callback
   * @param Button Specifies the pressed button
@@ -520,7 +814,7 @@ void BSP_PB_Callback(Button_TypeDef Button)
 {
   if (Button == BUTTON_USER)
   {
-	  osSemaphoreRelease(buttonSemaphoreHandle);
+    BspButtonState = BUTTON_PRESSED;
   }
 }
 
