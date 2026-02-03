@@ -87,6 +87,13 @@ const osThreadAttr_t MotorTask_attributes = {
   .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 128 * 4
 };
+/* Definitions for UITask */
+osThreadId_t UITaskHandle;
+const osThreadAttr_t UITask_attributes = {
+  .name = "UITask",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
 /* Definitions for logQueue */
 osMessageQueueId_t logQueueHandle;
 const osMessageQueueAttr_t logQueue_attributes = {
@@ -132,6 +139,7 @@ void StartSysStatusTask(void *argument);
 void StartLoggerTask(void *argument);
 void startButtonTask(void *argument);
 void StartMotorTask(void *argument);
+void StartUITask(void *argument);
 void BuzzerTimerCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -140,7 +148,13 @@ void BuzzerTimerCallback(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if(hadc->Instance == ADC1)
+    {
+        osSemaphoreRelease(adcSemaphoreHandle); // Notify UI task
+    }
+}
 /* USER CODE END 0 */
 
 /**
@@ -232,6 +246,9 @@ int main(void)
   /* creation of MotorTask */
   MotorTaskHandle = osThreadNew(StartMotorTask, NULL, &MotorTask_attributes);
 
+  /* creation of UITask */
+  UITaskHandle = osThreadNew(StartUITask, NULL, &UITask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -251,12 +268,7 @@ int main(void)
   /* USER CODE BEGIN BSP */
 
   /* -- Sample board code to send message over COM1 port ---- */
-  printf("Welcome to STM32 world !\n\r");
 
-  /* -- Sample board code to switch on leds ---- */
-  BSP_LED_On(LED_GREEN);
-  BSP_LED_On(LED_BLUE);
-  BSP_LED_On(LED_RED);
 
   /* USER CODE END BSP */
 
@@ -865,6 +877,51 @@ void StartMotorTask(void *argument)
   /* USER CODE END StartMotorTask */
 }
 
+/* USER CODE BEGIN Header_StartUITask */
+/**
+* @brief Function implementing the UITask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUITask */
+void StartUITask(void *argument)
+{
+  /* USER CODE BEGIN StartUITask */
+  /* Infinite loop */
+	TickType_t xLastWakeTime = xTaskGetTickCount();
+	const TickType_t xPeriod = pdMS_TO_TICKS(30); // 30ms periodic
+
+	uint32_t adcValue = 0;
+
+	for (;;)
+	{
+		// Start ADC conversion (non-blocking, interrupt-based)
+		HAL_ADC_Start_IT(&hadc1);
+
+		// Wait for ADC conversion (short timeout)
+		if (osSemaphoreAcquire(adcSemaphoreHandle, pdMS_TO_TICKS(5)) == osOK)
+		{
+			adcValue = HAL_ADC_GetValue(&hadc1);
+
+			// Map ADC to motor state
+			if (adcValue == 0)
+				uiMotorState = MOTOR_STOP;
+			else if (adcValue < 2048)
+				uiMotorState = MOTOR_CCW;
+			else
+				uiMotorState = MOTOR_CW;
+
+			// Update PWM duty requested
+			uiPwmDuty = (uiMotorState == MOTOR_STOP) ? 0 :
+						(adcValue * htim1.Init.Period) / 4095;
+		}
+
+		// Wait until next period
+		vTaskDelayUntil(&xLastWakeTime, xPeriod);
+	}
+  /* USER CODE END StartUITask */
+}
+
 /* BuzzerTimerCallback function */
 void BuzzerTimerCallback(void *argument)
 {
@@ -882,8 +939,7 @@ void BSP_PB_Callback(Button_TypeDef Button)
 {
   if (Button == BUTTON_USER)
   {
-    BspButtonState = BUTTON_PRESSED;
-    osSemaphoreRelease(buttonSemaphoreHandle);
+	  osSemaphoreRelease(buttonSemaphoreHandle);
   }
 }
 
