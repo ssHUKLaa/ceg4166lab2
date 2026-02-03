@@ -602,7 +602,15 @@ static void MX_TIM5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM5_Init 2 */
-
+  // Reconfigure TIM5 for audible buzzer frequency (~2 kHz)
+  // 110 MHz / (prescaler+1) / (period+1) = frequency
+  // 110 MHz / 110 / 500 = 2 kHz
+  htim5.Init.Prescaler = 109;
+  htim5.Init.Period = 499;
+  if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE END TIM5_Init 2 */
   HAL_TIM_MspPostInit(&htim5);
 
@@ -642,6 +650,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
+  HAL_PWREx_EnableVddIO2();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
@@ -705,7 +715,6 @@ void StartSysStatusTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_7);   // Green LED (PC7)
 
 	  tick += 500;
 	  if (tick >= 1000)
@@ -754,10 +763,10 @@ void startButtonTask(void *argument)
 {
   /* USER CODE BEGIN startButtonTask */
 
-	const char *eventMsg = "[EVENT] Button pressed\r\n";
-	static uint8_t ledSuspended = 0;
-	uint32_t adcValue = 0;
-	MotorState_t newState;
+	const char *msgStop = "[EVENT] Button: STOP\r\n";
+	const char *msgCW = "[EVENT] Button: CW\r\n";
+	const char *msgCCW = "[EVENT] Button: CCW\r\n";
+	const char *logMsg;
 
 	/* Infinite loop */
 	for(;;)
@@ -765,44 +774,32 @@ void startButtonTask(void *argument)
 		// Wait for button press (blocks efficiently on semaphore)
 		osSemaphoreAcquire(buttonSemaphoreHandle, osWaitForever);
 
-		// Log button press
-		osMessageQueuePut(logQueueHandle, &eventMsg, 0, 0);
-
-		// Toggle SysStatusTask LED
-		if(ledSuspended)
+		// Cycle motor state: STOP -> CW -> CCW -> STOP
+		switch(uiMotorState)
 		{
-			vTaskResume(SysStatusTasHandle);
-			ledSuspended = 0;
-		}
-		else
-		{
-			vTaskSuspend(SysStatusTasHandle);
-			ledSuspended = 1;
+			case MOTOR_STOP:
+				uiMotorState = MOTOR_CW;
+				logMsg = msgCW;
+				break;
+			case MOTOR_CW:
+				uiMotorState = MOTOR_CCW;
+				logMsg = msgCCW;
+				break;
+			case MOTOR_CCW:
+			default:
+				uiMotorState = MOTOR_STOP;
+				logMsg = msgStop;
+				break;
 		}
 
-		// Activate buzzer for 100ms using one-shot timer
-		__HAL_TIM_SET_COMPARE(&htim5, TIM_CHANNEL_1, htim5.Init.Period / 2); // 50% duty
+		// Log state change
+		osMessageQueuePut(logQueueHandle, &logMsg, 0, 0);
+
+		// Activate buzzer for 100ms using one-shot timer (non-blocking)
+		// 50% duty cycle for 2kHz tone (period=499, so compare=250)
+		__HAL_TIM_SET_COMPARE(&htim5, TIM_CHANNEL_1, 250);
 		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-
-		// Stop buzzer after 100ms
 		osTimerStart(buzzerTimerHandle, 100);
-
-		HAL_ADC_Start_IT(&hadc1);
-		if (osSemaphoreAcquire(adcSemaphoreHandle, pdMS_TO_TICKS(5)) == osOK)
-		{
-			adcValue = HAL_ADC_GetValue(&hadc1);
-
-			// Map ADC to motor state
-			if (adcValue == 0)
-			    newState = MOTOR_STOP;
-			else if (adcValue < 2048)
-			    newState = MOTOR_CCW;
-			else
-			    newState = MOTOR_CW;
-
-			uiMotorState = newState;
-			uiPwmDuty = (newState == MOTOR_STOP) ? 0 : (adcValue * htim1.Init.Period) / 4095;
-		}
 	}
   /* USER CODE END startButtonTask */
 }
@@ -826,7 +823,7 @@ void StartMotorTask(void *argument)
 
     // Initialize motor outputs and LEDs to STOP
     uiMotorState = MOTOR_STOP;
-    uint32_t pwmDuty = 0;
+    uiPwmDuty = 0;
 
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);      // STB
@@ -850,7 +847,7 @@ void StartMotorTask(void *argument)
                 break;
 
             case MOTOR_CW:
-                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, uiPwmDuty);
                 HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);        // STB
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
@@ -860,7 +857,7 @@ void StartMotorTask(void *argument)
                 break;
 
             case MOTOR_CCW:
-                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmDuty);
+                __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, uiPwmDuty);
                 HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);        // STB
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
@@ -889,7 +886,7 @@ void StartUITask(void *argument)
   /* USER CODE BEGIN StartUITask */
   /* Infinite loop */
 	TickType_t xLastWakeTime = xTaskGetTickCount();
-	const TickType_t xPeriod = pdMS_TO_TICKS(30); // 30ms periodic
+	const TickType_t xPeriod = pdMS_TO_TICKS(30); // 30ms periodic (per lab requirements: 20-50ms)
 
 	uint32_t adcValue = 0;
 
@@ -903,17 +900,14 @@ void StartUITask(void *argument)
 		{
 			adcValue = HAL_ADC_GetValue(&hadc1);
 
-			// Map ADC to motor state
-			if (adcValue == 0)
-				uiMotorState = MOTOR_STOP;
-			else if (adcValue < 2048)
-				uiMotorState = MOTOR_CCW;
-			else
-				uiMotorState = MOTOR_CW;
-
-			// Update PWM duty requested
-			uiPwmDuty = (uiMotorState == MOTOR_STOP) ? 0 :
-						(adcValue * htim1.Init.Period) / 4095;
+			// Potentiometer controls speed only (not state)
+			// Map ADC value (0-4095) to PWM duty cycle (0-100%)
+			// Speed is only applied when motor is running (not in STOP state)
+			if (uiMotorState != MOTOR_STOP)
+			{
+				uiPwmDuty = (adcValue * htim1.Init.Period) / 4095;
+			}
+			// In STOP state, PWM must remain 0 regardless of potentiometer
 		}
 
 		// Wait until next period
@@ -939,7 +933,7 @@ void BSP_PB_Callback(Button_TypeDef Button)
 {
   if (Button == BUTTON_USER)
   {
-	  osSemaphoreRelease(buttonSemaphoreHandle);
+    osSemaphoreRelease(buttonSemaphoreHandle);
   }
 }
 
@@ -968,13 +962,7 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-void BSP_PB_Callback(Button_TypeDef Button)
-{
-  if (Button == BUTTON_USER)
-  {
-	  osSemaphoreRelease(buttonSemaphoreHandle);
-  }
-}
+  /* User can add his own implementation to report the HAL error return state */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
