@@ -162,6 +162,48 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles EXTI line2 interrupt.
+  */
+void EXTI2_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI2_IRQn 0 */
+
+  /* USER CODE END EXTI2_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
+  /* USER CODE BEGIN EXTI2_IRQn 1 */
+
+  /* USER CODE END EXTI2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line6 interrupt.
+  */
+void EXTI6_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI6_IRQn 0 */
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	UIEvent_t evt;
+
+	if (GPIO_Pin == GPIO_PIN_6)  // Touch interrupt
+	{
+		evt = UI_EVT_TOUCH_IRQ;
+		osMessageQueuePutFromISR(uiQueueHandle, &evt, &xHigherPriorityTaskWoken);
+	}
+	else if (GPIO_Pin == GPIO_PIN_2) // E-STOP
+	{
+		evt = UI_EVT_ESTOP;
+		osMessageQueuePutFromISR(uiQueueHandle, &evt, &xHigherPriorityTaskWoken);
+	}
+
+	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  /* USER CODE END EXTI6_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6);
+  /* USER CODE BEGIN EXTI6_IRQn 1 */
+
+  /* USER CODE END EXTI6_IRQn 1 */
+}
+
+/**
   * @brief This function handles EXTI line13 interrupt.
   */
 void EXTI13_IRQHandler(void)
@@ -169,7 +211,7 @@ void EXTI13_IRQHandler(void)
   /* USER CODE BEGIN EXTI13_IRQn 0 */
 
   /* USER CODE END EXTI13_IRQn 0 */
-  BSP_PB_IRQHandler(BUTTON_USER);
+  HAL_EXTI_IRQHandler(&H_EXTI_13);
   /* USER CODE BEGIN EXTI13_IRQn 1 */
 
   /* USER CODE END EXTI13_IRQn 1 */

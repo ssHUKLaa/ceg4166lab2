@@ -28,7 +28,9 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define EVT_BTN_CYCLE   (1 << 0)
+#define EVT_TOUCH      (1 << 1)
+#define EVT_ESTOP      (1 << 2)
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -46,6 +48,8 @@
 __IO uint32_t BspButtonState = BUTTON_RELEASED;
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
+
+I2C_HandleTypeDef hi2c2;
 
 UART_HandleTypeDef hlpuart1;
 
@@ -73,18 +77,11 @@ const osThreadAttr_t LoggerTask_attributes = {
   .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 128 * 4
 };
-/* Definitions for buttonTask */
-osThreadId_t buttonTaskHandle;
-const osThreadAttr_t buttonTask_attributes = {
-  .name = "buttonTask",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
 /* Definitions for MotorTask */
 osThreadId_t MotorTaskHandle;
 const osThreadAttr_t MotorTask_attributes = {
   .name = "MotorTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
+  .priority = (osPriority_t) osPriorityHigh,
   .stack_size = 128 * 4
 };
 /* Definitions for UITask */
@@ -94,20 +91,27 @@ const osThreadAttr_t UITask_attributes = {
   .priority = (osPriority_t) osPriorityLow,
   .stack_size = 128 * 4
 };
+/* Definitions for controlTask */
+osThreadId_t controlTaskHandle;
+const osThreadAttr_t controlTask_attributes = {
+  .name = "controlTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
 /* Definitions for logQueue */
 osMessageQueueId_t logQueueHandle;
 const osMessageQueueAttr_t logQueue_attributes = {
   .name = "logQueue"
 };
+/* Definitions for uiQueue */
+osMessageQueueId_t uiQueueHandle;
+const osMessageQueueAttr_t uiQueue_attributes = {
+  .name = "uiQueue"
+};
 /* Definitions for buzzerTimer */
 osTimerId_t buzzerTimerHandle;
 const osTimerAttr_t buzzerTimer_attributes = {
   .name = "buzzerTimer"
-};
-/* Definitions for buttonSemaphore */
-osSemaphoreId_t buttonSemaphoreHandle;
-const osSemaphoreAttr_t buttonSemaphore_attributes = {
-  .name = "buttonSemaphore"
 };
 /* Definitions for adcSemaphore */
 osSemaphoreId_t adcSemaphoreHandle;
@@ -121,8 +125,19 @@ typedef enum {
     MOTOR_CCW
 } MotorState_t;
 
-volatile MotorState_t uiMotorState = MOTOR_STOP;
-volatile uint32_t uiPwmDuty = 0;
+typedef enum {
+    UI_EVT_BTN_CYCLE,
+    UI_EVT_TOUCH_IRQ,
+    UI_EVT_ESTOP
+} UIEvent_t;
+
+typedef struct {
+    MotorState_t state;
+    uint32_t pwm;
+} MotorCommand_t;
+
+
+volatile MotorCommand_t motorCmd;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,12 +149,13 @@ static void MX_TIM1_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_LPUART1_UART_Init(void);
+static void MX_I2C2_Init(void);
 void StartDefaultTask(void *argument);
 void StartSysStatusTask(void *argument);
 void StartLoggerTask(void *argument);
-void startButtonTask(void *argument);
 void StartMotorTask(void *argument);
 void StartUITask(void *argument);
+void StartcontrolTask(void *argument);
 void BuzzerTimerCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -192,6 +208,7 @@ int main(void)
   MX_TIM5_Init();
   MX_ADC1_Init();
   MX_LPUART1_UART_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -204,9 +221,6 @@ int main(void)
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* creation of buttonSemaphore */
-  buttonSemaphoreHandle = osSemaphoreNew(1, 0, &buttonSemaphore_attributes);
-
   /* creation of adcSemaphore */
   adcSemaphoreHandle = osSemaphoreNew(1, 0, &adcSemaphore_attributes);
 
@@ -226,6 +240,9 @@ int main(void)
   /* creation of logQueue */
   logQueueHandle = osMessageQueueNew (5, sizeof(char *), &logQueue_attributes);
 
+  /* creation of uiQueue */
+  uiQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &uiQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -240,14 +257,14 @@ int main(void)
   /* creation of LoggerTask */
   LoggerTaskHandle = osThreadNew(StartLoggerTask, NULL, &LoggerTask_attributes);
 
-  /* creation of buttonTask */
-  buttonTaskHandle = osThreadNew(startButtonTask, NULL, &buttonTask_attributes);
-
   /* creation of MotorTask */
   MotorTaskHandle = osThreadNew(StartMotorTask, NULL, &MotorTask_attributes);
 
   /* creation of UITask */
   UITaskHandle = osThreadNew(StartUITask, NULL, &UITask_attributes);
+
+  /* creation of controlTask */
+  controlTaskHandle = osThreadNew(StartcontrolTask, NULL, &controlTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -404,6 +421,54 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x60514452;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -647,9 +712,10 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
   HAL_PWREx_EnableVddIO2();
 
@@ -657,7 +723,19 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_5, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB2 PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE15 */
   GPIO_InitStruct.Pin = GPIO_PIN_15;
@@ -666,12 +744,22 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB10 PB11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
+  /*Configure GPIO pins : PB10 PB11 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI6_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI6_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI13_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(EXTI13_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -752,58 +840,6 @@ void StartLoggerTask(void *argument)
   /* USER CODE END StartLoggerTask */
 }
 
-/* USER CODE BEGIN Header_startButtonTask */
-/**
-* @brief Function implementing the buttonTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_startButtonTask */
-void startButtonTask(void *argument)
-{
-  /* USER CODE BEGIN startButtonTask */
-
-	const char *msgStop = "[EVENT] Button: STOP\r\n";
-	const char *msgCW = "[EVENT] Button: CW\r\n";
-	const char *msgCCW = "[EVENT] Button: CCW\r\n";
-	const char *logMsg;
-
-	/* Infinite loop */
-	for(;;)
-	{
-		// Wait for button press (blocks efficiently on semaphore)
-		osSemaphoreAcquire(buttonSemaphoreHandle, osWaitForever);
-
-		// Cycle motor state: STOP -> CW -> CCW -> STOP
-		switch(uiMotorState)
-		{
-			case MOTOR_STOP:
-				uiMotorState = MOTOR_CW;
-				logMsg = msgCW;
-				break;
-			case MOTOR_CW:
-				uiMotorState = MOTOR_CCW;
-				logMsg = msgCCW;
-				break;
-			case MOTOR_CCW:
-			default:
-				uiMotorState = MOTOR_STOP;
-				logMsg = msgStop;
-				break;
-		}
-
-		// Log state change
-		osMessageQueuePut(logQueueHandle, &logMsg, 0, 0);
-
-		// Activate buzzer for 100ms using one-shot timer (non-blocking)
-		// 50% duty cycle for 2kHz tone (period=499, so compare=250)
-		__HAL_TIM_SET_COMPARE(&htim5, TIM_CHANNEL_1, 250);
-		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-		osTimerStart(buzzerTimerHandle, 100);
-	}
-  /* USER CODE END startButtonTask */
-}
-
 /* USER CODE BEGIN Header_StartMotorTask */
 /**
 * @brief Function implementing the MotorTask thread.
@@ -825,7 +861,7 @@ void StartMotorTask(void *argument)
     uiMotorState = MOTOR_STOP;
     uiPwmDuty = 0;
 
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, motorCmd.pwm);
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);      // STB
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET); // Direction
     BSP_LED_On(LED_RED);
@@ -835,7 +871,7 @@ void StartMotorTask(void *argument)
     for (;;)
     {
         // Apply motor outputs based on current motorState and pwmDuty
-        switch (uiMotorState)
+        switch (motorCmd.state)
         {
             case MOTOR_STOP:
                 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
@@ -903,9 +939,9 @@ void StartUITask(void *argument)
 			// Potentiometer controls speed only (not state)
 			// Map ADC value (0-4095) to PWM duty cycle (0-100%)
 			// Speed is only applied when motor is running (not in STOP state)
-			if (uiMotorState != MOTOR_STOP)
+			if (motorCmd.state != MOTOR_STOP)
 			{
-				uiPwmDuty = (adcValue * htim1.Init.Period) / 4095;
+				motorCmd.pwm = (adcValue * htim1.Init.Period) / 4095;
 			}
 			// In STOP state, PWM must remain 0 regardless of potentiometer
 		}
@@ -914,6 +950,65 @@ void StartUITask(void *argument)
 		vTaskDelayUntil(&xLastWakeTime, xPeriod);
 	}
   /* USER CODE END StartUITask */
+}
+
+/* USER CODE BEGIN Header_StartcontrolTask */
+/**
+* @brief Function implementing the controlTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartcontrolTask */
+void StartcontrolTask(void *argument)
+{
+  /* USER CODE BEGIN StartcontrolTask */
+  /* Infinite loop */
+	uint32_t events;
+
+	motorCmd.state = MOTOR_STOP;
+	motorCmd.pwm   = 0;
+
+	LCD_Init();
+	LCD_DisplayText("STOP", FIRST_LINE);
+
+	for (;;)
+	{
+		xTaskNotifyWait(0, 0xFFFFFFFF, &events, portMAX_DELAY);
+
+		if (events & EVT_BTN_CYCLE)
+		{
+			switch (motorCmd.state)
+			    {
+			        case MOTOR_STOP:
+			            motorCmd.state = MOTOR_CW;
+			            LCD_DisplayText("CW", FIRST_LINE);
+			            break;
+
+			        case MOTOR_CW:
+			            motorCmd.state = MOTOR_CCW;
+			            LCD_DisplayText("CCW", FIRST_LINE);
+			            break;
+
+			        case MOTOR_CCW:
+			            motorCmd.state = MOTOR_STOP;
+			            motorCmd.pwm = 0;
+			            LCD_DisplayText("STOP", FIRST_LINE);
+			            break;
+			    }
+		}
+
+		if (events & EVT_TOUCH)
+		{
+			// Read I2C keypad here
+			// Apply priority: STOP > CCW > CW
+		}
+
+		// Trigger buzzer timer (non-blocking)
+		HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
+		osTimerStart(buzzerTimerHandle, 50);
+	}
+
+  /* USER CODE END StartcontrolTask */
 }
 
 /* BuzzerTimerCallback function */
@@ -931,10 +1026,13 @@ void BuzzerTimerCallback(void *argument)
   */
 void BSP_PB_Callback(Button_TypeDef Button)
 {
-  if (Button == BUTTON_USER)
-  {
-    osSemaphoreRelease(buttonSemaphoreHandle);
-  }
+	if (Button == BUTTON_USER)
+	    {
+			UIEvent_t evt = UI_EVT_BTN_CYCLE;
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			osMessageQueuePutFromISR(uiQueueHandle, &evt, &xHigherPriorityTaskWoken);
+			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	    }
 }
 
 /**
