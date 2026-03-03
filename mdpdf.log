@@ -1,0 +1,551 @@
+    INFO: 2026-02-14 17:01:54,747:               log.py:   20: Logging to C:\Users\palim\Documents\GitHub\ceg4166lab2\mdpdf.log
+   DEBUG: 2026-02-14 17:01:54,747:               cli.py:  103: C:\Users\palim\Documents\GitHub\ceg4166lab2\Lab2_Report.md
+    INFO: 2026-02-14 17:01:54,749:         converter.py:   14: C:\Users\palim\Documents\GitHub\ceg4166lab2\Lab2_Report.md
+   DEBUG: 2026-02-14 17:01:54,764:      pdf_renderer.py:  470: printSegment: Lab 2 – FreeRTOS Setup and Basic Motor Control (Open-Loop)
+   DEBUG: 2026-02-14 17:01:54,793:      pdf_renderer.py:  470: printSegment: Student Names:
+   DEBUG: 2026-02-14 17:01:54,800:      pdf_renderer.py:  470: printSegment:  Krisha Veera, Stuti Pandya, Lana Othman, Sahil Shukla, Salim Aissaoui
+   DEBUG: 2026-02-14 17:01:54,805:      pdf_renderer.py:  470: printSegment: Group #12
+   DEBUG: 2026-02-14 17:01:54,808:      pdf_renderer.py:  470: printSegment: SEG4145 Real Time Systems Design
+   DEBUG: 2026-02-14 17:01:54,810:      pdf_renderer.py:  470: printSegment: Professor:
+   DEBUG: 2026-02-14 17:01:54,811:      pdf_renderer.py:  470: printSegment:  Mohamed Ali Ibrahim
+   DEBUG: 2026-02-14 17:01:54,812:      pdf_renderer.py:  470: printSegment: Presented to:
+   DEBUG: 2026-02-14 17:01:54,814:      pdf_renderer.py:  470: printSegment:  Pankaj Rathi
+   DEBUG: 2026-02-14 17:01:54,815:      pdf_renderer.py:  470: printSegment: School of Electrical Engineering and Computer Science
+   DEBUG: 2026-02-14 17:01:54,816:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:54,818:      pdf_renderer.py:  470: printSegment: École de science informatique et de génie électrique
+   DEBUG: 2026-02-14 17:01:54,820:      pdf_renderer.py:  470: printSegment: Faculty of Engineering | Faculté de génie
+   DEBUG: 2026-02-14 17:01:54,821:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:54,822:      pdf_renderer.py:  470: printSegment: University of Ottawa | Université d
+   DEBUG: 2026-02-14 17:01:54,823:      pdf_renderer.py:  470: printSegment: '
+   DEBUG: 2026-02-14 17:01:54,824:      pdf_renderer.py:  470: printSegment: Ottawa
+   DEBUG: 2026-02-14 17:01:54,825:      pdf_renderer.py:  470: printSegment: Submission Date:
+   DEBUG: 2026-02-14 17:01:54,827:      pdf_renderer.py:  470: printSegment:  February 14, 2026
+   DEBUG: 2026-02-14 17:01:54,829:      pdf_renderer.py:  470: printSegment: Introduction
+   DEBUG: 2026-02-14 17:01:54,880:      pdf_renderer.py:  470: printSegment: The objective of this laboratory was to design and implement a real-time embedded system using FreeRTOS to
+   DEBUG: 2026-02-14 17:01:54,905:      pdf_renderer.py:  470: printSegment: perform open-loop DC motor control. The system integrates multiple peripherals including PWM generation via
+   DEBUG: 2026-02-14 17:01:54,911:      pdf_renderer.py:  470: printSegment: TIM1 (PE9), ADC sampling on PC0, GPIO control for direction (PB10/PB11) and standby (PE15), UART logging,
+   DEBUG: 2026-02-14 17:01:54,915:      pdf_renderer.py:  470: printSegment: and non-blocking buzzer feedback.
+   DEBUG: 2026-02-14 17:01:54,962:      pdf_renderer.py:  470: printSegment: The system follows a task-based architecture using CMSIS-RTOS2 on top of FreeRTOS. The potentiometer value is
+   DEBUG: 2026-02-14 17:01:54,974:      pdf_renderer.py:  470: printSegment: sampled using ADC1 to adjust speed, while motor state transitions (STOP → CW → CCW) are triggered by a push button
+   DEBUG: 2026-02-14 17:01:55,009:      pdf_renderer.py:  470: printSegment: interrupt and synchronized with the tasks using RTOS semaphores.
+   DEBUG: 2026-02-14 17:01:55,014:      pdf_renderer.py:  470: printSegment: This lab establishes a scalable and deterministic real-time architecture that provides the foundation for future
+   DEBUG: 2026-02-14 17:01:55,016:      pdf_renderer.py:  470: printSegment: closed-loop control laboratories.
+   DEBUG: 2026-02-14 17:01:55,017:      pdf_renderer.py:  470: printSegment: Equipment
+   DEBUG: 2026-02-14 17:01:55,018:      pdf_renderer.py:  470: printSegment: Hardware
+   DEBUG: 2026-02-14 17:01:55,019:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,022:      pdf_renderer.py:  470: printSegment: STM32L552ZE Microcontroller Board (Cortex-M33)
+   DEBUG: 2026-02-14 17:01:55,024:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,026:      pdf_renderer.py:  470: printSegment: DC Motor 
+   DEBUG: 2026-02-14 17:01:55,028:      pdf_renderer.py:  470: printSegment: &
+   DEBUG: 2026-02-14 17:01:55,029:      pdf_renderer.py:  470: printSegment:  L298N/Equivalent Motor Driver
+   DEBUG: 2026-02-14 17:01:55,030:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,032:      pdf_renderer.py:  470: printSegment: PWM Speed Control: PE9 (TIM1
+   DEBUG: 2026-02-14 17:01:55,033:      pdf_renderer.py:  470: printSegment: _
+   DEBUG: 2026-02-14 17:01:55,034:      pdf_renderer.py:  470: printSegment: CH1)
+   DEBUG: 2026-02-14 17:01:55,035:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,037:      pdf_renderer.py:  470: printSegment: Direction Control: PB10 (AI1), PB11 (AI2)
+   DEBUG: 2026-02-14 17:01:55,039:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,040:      pdf_renderer.py:  470: printSegment: Standby (STB): PE15
+   DEBUG: 2026-02-14 17:01:55,042:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,044:      pdf_renderer.py:  470: printSegment: Potentiometer: Connected to PC0 (ADC1)
+   DEBUG: 2026-02-14 17:01:55,045:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,046:      pdf_renderer.py:  470: printSegment: User Feedback:
+   DEBUG: 2026-02-14 17:01:55,047:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,049:      pdf_renderer.py:  470: printSegment: On-board LEDs: Red (Stop), Green (CW), Blue (CCW)
+   DEBUG: 2026-02-14 17:01:55,051:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,053:      pdf_renderer.py:  470: printSegment: Buzzer: Connected to PA0 (TIM5 PWM output)
+   DEBUG: 2026-02-14 17:01:55,054:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,057:      pdf_renderer.py:  470: printSegment: User Push Button: Connected to PC13 (External Interrupt)
+   DEBUG: 2026-02-14 17:01:55,058:      pdf_renderer.py:  470: printSegment: Software
+   DEBUG: 2026-02-14 17:01:55,060:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,061:      pdf_renderer.py:  470: printSegment: STM32CubeIDE:
+   DEBUG: 2026-02-14 17:01:55,063:      pdf_renderer.py:  470: printSegment:  Integrated Development Environment for C/C++ and Configuration (iOC).
+   DEBUG: 2026-02-14 17:01:55,064:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,066:      pdf_renderer.py:  470: printSegment: FreeRTOS (CMSIS-RTOS2 API):
+   DEBUG: 2026-02-14 17:01:55,068:      pdf_renderer.py:  470: printSegment:  Real-time kernel for task scheduling and synchronization.
+   DEBUG: 2026-02-14 17:01:55,070:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,071:      pdf_renderer.py:  470: printSegment: STM32CubeL5 HAL Drivers:
+   DEBUG: 2026-02-14 17:01:55,073:      pdf_renderer.py:  470: printSegment:  Hardware Abstraction Layer for peripheral control.
+   DEBUG: 2026-02-14 17:01:55,075:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,076:      pdf_renderer.py:  470: printSegment: Serial Terminal (e.g., PuTTY):
+   DEBUG: 2026-02-14 17:01:55,078:      pdf_renderer.py:  470: printSegment:  For monitoring UART debug logs.
+   DEBUG: 2026-02-14 17:01:55,080:      pdf_renderer.py:  470: printSegment: Design Process
+   DEBUG: 2026-02-14 17:01:55,082:      pdf_renderer.py:  470: printSegment: 3.1 Overall Architecture
+   DEBUG: 2026-02-14 17:01:55,102:      pdf_renderer.py:  470: printSegment: The system is designed using a preemptive multitasking architecture managed by FreeRTOS (CMSIS-RTOS2). To
+   DEBUG: 2026-02-14 17:01:55,105:      pdf_renderer.py:  470: printSegment: ensure determinism and safety, the system is decomposed into two primary functional tasks and supporting service
+   DEBUG: 2026-02-14 17:01:55,107:      pdf_renderer.py:  470: printSegment: tasks:
+   DEBUG: 2026-02-14 17:01:55,108:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,110:      pdf_renderer.py:  470: printSegment: MotorTask (Priority: AboveNormal / High):
+   DEBUG: 2026-02-14 17:01:55,137:      pdf_renderer.py:  470: printSegment:  This is the highest priority functional task. It is
+   DEBUG: 2026-02-14 17:01:55,159:      pdf_renderer.py:  470: printSegment: responsible for hardware-timed motor control, updating PWM registers (TIM1), and managing
+   DEBUG: 2026-02-14 17:01:55,163:      pdf_renderer.py:  470: printSegment: direction GPIOs. High priority ensures that motor control logic is never delayed by user-interface
+   DEBUG: 2026-02-14 17:01:55,164:      pdf_renderer.py:  470: printSegment: processing.
+   DEBUG: 2026-02-14 17:01:55,165:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,167:      pdf_renderer.py:  470: printSegment: UITask (Priority: Low):
+   DEBUG: 2026-02-14 17:01:55,197:      pdf_renderer.py:  470: printSegment:  This task handles human-interface elements, including sampling the
+   DEBUG: 2026-02-14 17:01:55,212:      pdf_renderer.py:  470: printSegment: potentiometer via ADC1 and processing speed change requests. Since humans perceive delays in
+   DEBUG: 2026-02-14 17:01:55,215:      pdf_renderer.py:  470: printSegment: milliseconds, this task runs at a lower priority to yield CPU time to the MotorTask.
+   DEBUG: 2026-02-14 17:01:55,216:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,217:      pdf_renderer.py:  470: printSegment: Service Tasks:
+   DEBUG: 2026-02-14 17:01:55,218:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,220:      pdf_renderer.py:  470: printSegment: LoggerTask: Handles asynchronous UART transmission of system telemetry.
+   DEBUG: 2026-02-14 17:01:55,221:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,223:      pdf_renderer.py:  470: printSegment: SysStatusTask: Monitors system health via periodic heartbeat messages.
+   DEBUG: 2026-02-14 17:01:55,225:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,233:      pdf_renderer.py:  470: printSegment: Button Handling: Managed via an External Interrupt (EXTI) and a Binary
+   DEBUG: 2026-02-14 17:01:55,235:      pdf_renderer.py:  470: printSegment: Semaphore, ensuring an immediate, non-blocking response to user input.
+   DEBUG: 2026-02-14 17:01:55,237:      pdf_renderer.py:  470: printSegment: 3.2 Motor State Design and Shared Control Variables
+   DEBUG: 2026-02-14 17:01:55,285:      pdf_renderer.py:  470: printSegment: To structure motor behavior in a clear and scalable way, a motor state machine was implemented using an
+   DEBUG: 2026-02-14 17:01:55,306:      pdf_renderer.py:  470: printSegment: enumerated data type. The motor operating modes were defined as STOP, CW (clockwise), and CCW
+   DEBUG: 2026-02-14 17:01:55,311:      pdf_renderer.py:  470: printSegment: (counter-clockwise). This formal representation prevents ambiguous logic and ensures that only valid motor states
+   DEBUG: 2026-02-14 17:01:55,312:      pdf_renderer.py:  470: printSegment: can be requested.
+   DEBUG: 2026-02-14 17:01:55,315:      pdf_renderer.py:  470: printSegment: typedef enum {
+   DEBUG: 2026-02-14 17:01:55,318:      pdf_renderer.py:  470: printSegment:     MOTOR_STOP = 0,
+   DEBUG: 2026-02-14 17:01:55,320:      pdf_renderer.py:  470: printSegment:     MOTOR_CW,
+   DEBUG: 2026-02-14 17:01:55,322:      pdf_renderer.py:  470: printSegment:     MOTOR_CCW
+   DEBUG: 2026-02-14 17:01:55,323:      pdf_renderer.py:  470: printSegment: } MotorState_t;
+   DEBUG: 2026-02-14 17:01:55,325:      pdf_renderer.py:  470: printSegment: volatile MotorState_t uiMotorState = MOTOR_STOP;
+   DEBUG: 2026-02-14 17:01:55,326:      pdf_renderer.py:  470: printSegment: volatile uint32_t uiPwmDuty = 0;
+   DEBUG: 2026-02-14 17:01:55,328:      pdf_renderer.py:  470: printSegment: Two shared control variables were introduced: 
+   DEBUG: 2026-02-14 17:01:55,329:      pdf_renderer.py:  470: printSegment: uiMotorState
+   DEBUG: 2026-02-14 17:01:55,331:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-02-14 17:01:55,332:      pdf_renderer.py:  470: printSegment: uiPwmDuty
+   DEBUG: 2026-02-14 17:01:55,334:      pdf_renderer.py:  470: printSegment: . The variable 
+   DEBUG: 2026-02-14 17:01:55,335:      pdf_renderer.py:  470: printSegment: uiMotorState
+   DEBUG: 2026-02-14 17:01:55,337:      pdf_renderer.py:  470: printSegment: 
+   DEBUG: 2026-02-14 17:01:55,338:      pdf_renderer.py:  470: printSegment: stores the requested motor mode, while 
+   DEBUG: 2026-02-14 17:01:55,340:      pdf_renderer.py:  470: printSegment: uiPwmDuty
+   DEBUG: 2026-02-14 17:01:55,347:      pdf_renderer.py:  470: printSegment:  stores the requested PWM duty cycle (0–65535, mapped from the
+   DEBUG: 2026-02-14 17:01:55,349:      pdf_renderer.py:  470: printSegment: 12-bit ADC range). These variables are declared as 
+   DEBUG: 2026-02-14 17:01:55,351:      pdf_renderer.py:  470: printSegment: volatile
+   DEBUG: 2026-02-14 17:01:55,437:      pdf_renderer.py:  470: printSegment:  to ensure memory consistency across tasks. To
+   DEBUG: 2026-02-14 17:01:55,498:      pdf_renderer.py:  470: printSegment: comply with the requirement for safe communication mechanisms, access to these variables is synchronized. Since
+   DEBUG: 2026-02-14 17:01:55,519:      pdf_renderer.py:  470: printSegment: the variables are simple scalar types, the MotorTask reads them at the start of its 15 ms period to ensure a local,
+   DEBUG: 2026-02-14 17:01:55,521:      pdf_renderer.py:  470: printSegment: stable copy of the command is used for the duration of the control cycle, preventing race conditions.
+   DEBUG: 2026-02-14 17:01:55,524:      pdf_renderer.py:  470: printSegment: This design separates decision-making from actuation:
+   DEBUG: 2026-02-14 17:01:55,525:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,527:      pdf_renderer.py:  470: printSegment: The UI layer (UITask) determines what the motor should do based on user input.
+   DEBUG: 2026-02-14 17:01:55,529:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,531:      pdf_renderer.py:  470: printSegment: The Actuation layer (MotorTask) applies those requests to the hardware.
+   DEBUG: 2026-02-14 17:01:55,533:      pdf_renderer.py:  470: printSegment: 3.3 Motor Task – Deterministic Actuation Layer
+   DEBUG: 2026-02-14 17:01:55,562:      pdf_renderer.py:  470: printSegment: The MotorTask was implemented as the primary hardware control task. It is responsible for applying all
+   DEBUG: 2026-02-14 17:01:55,570:      pdf_renderer.py:  470: printSegment: motor-related outputs, including PWM duty cycle via TIM1 (PE9), direction signals via PB10 and PB11, standby
+   DEBUG: 2026-02-14 17:01:55,573:      pdf_renderer.py:  470: printSegment: control via PE15, and LED state indication.
+   DEBUG: 2026-02-14 17:01:55,575:      pdf_renderer.py:  470: printSegment: The task executes periodically using 
+   DEBUG: 2026-02-14 17:01:55,577:      pdf_renderer.py:  470: printSegment: vTaskDelayUntil()
+   DEBUG: 2026-02-14 17:01:55,590:      pdf_renderer.py:  470: printSegment:  with a fixed period of 15 ms. This scheduling method
+   DEBUG: 2026-02-14 17:01:55,592:      pdf_renderer.py:  470: printSegment: ensures consistent execution intervals and minimizes timing jitter, which is essential for deterministic motor control.
+   DEBUG: 2026-02-14 17:01:55,594:      pdf_renderer.py:  470: printSegment: Initial State:
+   DEBUG: 2026-02-14 17:01:55,640:      pdf_renderer.py:  470: printSegment:  During initialization, the MotorTask explicitly forces the system into the STOP state. The PWM is set
+   DEBUG: 2026-02-14 17:01:55,657:      pdf_renderer.py:  470: printSegment: to zero, the standby pin (PE15) is driven LOW, both direction pins are reset, and the Red LED is turned ON. This
+   DEBUG: 2026-02-14 17:01:55,660:      pdf_renderer.py:  470: printSegment: guarantees the motor remains stationary upon reset, satisfying the mandatory initial condition requirement.
+   DEBUG: 2026-02-14 17:01:55,661:      pdf_renderer.py:  470: printSegment: void StartMotorTask(void *argument)
+   DEBUG: 2026-02-14 17:01:55,662:      pdf_renderer.py:  470: printSegment: {
+   DEBUG: 2026-02-14 17:01:55,664:      pdf_renderer.py:  470: printSegment:     TickType_t xLastWakeTime = xTaskGetTickCount();
+   DEBUG: 2026-02-14 17:01:55,665:      pdf_renderer.py:  470: printSegment:     const TickType_t xPeriod = pdMS_TO_TICKS(15);
+   DEBUG: 2026-02-14 17:01:55,667:      pdf_renderer.py:  470: printSegment:     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+   DEBUG: 2026-02-14 17:01:55,668:      pdf_renderer.py:  470: printSegment:     uiMotorState = MOTOR_STOP;
+   DEBUG: 2026-02-14 17:01:55,669:      pdf_renderer.py:  470: printSegment:     uiPwmDuty = 0;
+   DEBUG: 2026-02-14 17:01:55,670:      pdf_renderer.py:  470: printSegment:     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+   DEBUG: 2026-02-14 17:01:55,673:      pdf_renderer.py:  470: printSegment:     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,675:      pdf_renderer.py:  470: printSegment:     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11,
+   DEBUG: 2026-02-14 17:01:55,676:      pdf_renderer.py:  470: printSegment: GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,678:      pdf_renderer.py:  470: printSegment:     BSP_LED_On(LED_RED);
+   DEBUG: 2026-02-14 17:01:55,679:      pdf_renderer.py:  470: printSegment:     BSP_LED_Off(LED_GREEN);
+   DEBUG: 2026-02-14 17:01:55,680:      pdf_renderer.py:  470: printSegment:     BSP_LED_Off(LED_BLUE);
+   DEBUG: 2026-02-14 17:01:55,681:      pdf_renderer.py:  470: printSegment:     for (;;)
+   DEBUG: 2026-02-14 17:01:55,682:      pdf_renderer.py:  470: printSegment:     {
+   DEBUG: 2026-02-14 17:01:55,684:      pdf_renderer.py:  470: printSegment:         switch (uiMotorState)
+   DEBUG: 2026-02-14 17:01:55,685:      pdf_renderer.py:  470: printSegment:         {
+   DEBUG: 2026-02-14 17:01:55,686:      pdf_renderer.py:  470: printSegment:             case MOTOR_STOP:
+   DEBUG: 2026-02-14 17:01:55,688:      pdf_renderer.py:  470: printSegment:                 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+   DEBUG: 2026-02-14 17:01:55,690:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15,
+   DEBUG: 2026-02-14 17:01:55,692:      pdf_renderer.py:  470: printSegment: GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,694:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11,
+   DEBUG: 2026-02-14 17:01:55,695:      pdf_renderer.py:  470: printSegment: GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,697:      pdf_renderer.py:  470: printSegment:                 BSP_LED_On(LED_RED);
+   DEBUG: 2026-02-14 17:01:55,699:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_GREEN);
+   DEBUG: 2026-02-14 17:01:55,700:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_BLUE);
+   DEBUG: 2026-02-14 17:01:55,701:      pdf_renderer.py:  470: printSegment:                 break;
+   DEBUG: 2026-02-14 17:01:55,703:      pdf_renderer.py:  470: printSegment:             case MOTOR_CW:
+   DEBUG: 2026-02-14 17:01:55,705:      pdf_renderer.py:  470: printSegment:                 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,
+   DEBUG: 2026-02-14 17:01:55,707:      pdf_renderer.py:  470: printSegment: uiPwmDuty);
+   DEBUG: 2026-02-14 17:01:55,709:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15,
+   DEBUG: 2026-02-14 17:01:55,710:      pdf_renderer.py:  470: printSegment: GPIO_PIN_SET);
+   DEBUG: 2026-02-14 17:01:55,712:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10,
+   DEBUG: 2026-02-14 17:01:55,714:      pdf_renderer.py:  470: printSegment: GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,716:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11,
+   DEBUG: 2026-02-14 17:01:55,717:      pdf_renderer.py:  470: printSegment: GPIO_PIN_SET);
+   DEBUG: 2026-02-14 17:01:55,719:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_RED);
+   DEBUG: 2026-02-14 17:01:55,721:      pdf_renderer.py:  470: printSegment:                 BSP_LED_On(LED_GREEN);
+   DEBUG: 2026-02-14 17:01:55,722:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_BLUE);
+   DEBUG: 2026-02-14 17:01:55,724:      pdf_renderer.py:  470: printSegment:                 break;
+   DEBUG: 2026-02-14 17:01:55,725:      pdf_renderer.py:  470: printSegment:             case MOTOR_CCW:
+   DEBUG: 2026-02-14 17:01:55,728:      pdf_renderer.py:  470: printSegment:                 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1,
+   DEBUG: 2026-02-14 17:01:55,729:      pdf_renderer.py:  470: printSegment: uiPwmDuty);
+   DEBUG: 2026-02-14 17:01:55,731:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15,
+   DEBUG: 2026-02-14 17:01:55,733:      pdf_renderer.py:  470: printSegment: GPIO_PIN_SET);
+   DEBUG: 2026-02-14 17:01:55,736:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10,
+   DEBUG: 2026-02-14 17:01:55,738:      pdf_renderer.py:  470: printSegment: GPIO_PIN_SET);
+   DEBUG: 2026-02-14 17:01:55,740:      pdf_renderer.py:  470: printSegment:                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11,
+   DEBUG: 2026-02-14 17:01:55,741:      pdf_renderer.py:  470: printSegment: GPIO_PIN_RESET);
+   DEBUG: 2026-02-14 17:01:55,743:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_RED);
+   DEBUG: 2026-02-14 17:01:55,744:      pdf_renderer.py:  470: printSegment:                 BSP_LED_Off(LED_GREEN);
+   DEBUG: 2026-02-14 17:01:55,746:      pdf_renderer.py:  470: printSegment:                 BSP_LED_On(LED_BLUE);
+   DEBUG: 2026-02-14 17:01:55,747:      pdf_renderer.py:  470: printSegment:                 break;
+   DEBUG: 2026-02-14 17:01:55,748:      pdf_renderer.py:  470: printSegment:         }
+   DEBUG: 2026-02-14 17:01:55,750:      pdf_renderer.py:  470: printSegment:         vTaskDelayUntil(&xLastWakeTime, xPeriod);
+   DEBUG: 2026-02-14 17:01:55,751:      pdf_renderer.py:  470: printSegment:     }
+   DEBUG: 2026-02-14 17:01:55,751:      pdf_renderer.py:  470: printSegment: }
+   DEBUG: 2026-02-14 17:01:55,753:      pdf_renderer.py:  470: printSegment: Within its periodic loop, the MotorTask evaluates the current state and applies the following logic:
+   DEBUG: 2026-02-14 17:01:55,755:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,756:      pdf_renderer.py:  470: printSegment: STOP Mode:
+   DEBUG: 2026-02-14 17:01:55,759:      pdf_renderer.py:  470: printSegment:  PWM = 0; PE15 (STB) = LOW; PB10 = LOW, PB11 = LOW; Red LED ON.
+   DEBUG: 2026-02-14 17:01:55,760:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,761:      pdf_renderer.py:  470: printSegment: CW Mode:
+   DEBUG: 2026-02-14 17:01:55,763:      pdf_renderer.py:  470: printSegment:  PWM = uiPwmDuty; PE15 (STB) = HIGH; PB10 = LOW, PB11 = HIGH; Green LED
+   DEBUG: 2026-02-14 17:01:55,765:      pdf_renderer.py:  470: printSegment: ON.
+   DEBUG: 2026-02-14 17:01:55,769:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:55,771:      pdf_renderer.py:  470: printSegment: CCW Mode:
+   DEBUG: 2026-02-14 17:01:55,775:      pdf_renderer.py:  470: printSegment:  PWM = uiPwmDuty; PE15 (STB) = HIGH; PB10 = HIGH, PB11 = LOW; Blue LED
+   DEBUG: 2026-02-14 17:01:55,776:      pdf_renderer.py:  470: printSegment: ON.
+   DEBUG: 2026-02-14 17:01:55,778:      pdf_renderer.py:  470: printSegment: To satisfy the 
+   DEBUG: 2026-02-14 17:01:55,780:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:55,783:      pdf_renderer.py:  470: printSegment: Only one LED active
+   DEBUG: 2026-02-14 17:01:55,785:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:55,814:      pdf_renderer.py:  470: printSegment:  requirement, the task explicitly clears the inactive LED GPIO pins whenever a
+   DEBUG: 2026-02-14 17:01:55,821:      pdf_renderer.py:  470: printSegment: state transition occurs. By centralizing all hardware writes within this high-priority task, the system maintains a
+   DEBUG: 2026-02-14 17:01:55,823:      pdf_renderer.py:  470: printSegment: predictable and safe operating environment.
+   DEBUG: 2026-02-14 17:01:55,824:      pdf_renderer.py:  470: printSegment: 3.4 PWM Configuration (TIM1)
+   DEBUG: 2026-02-14 17:01:55,918:      pdf_renderer.py:  470: printSegment: Motor speed control was implemented using TIM1 Channel 1 (PE9) configured in PWM Generation CH1 mode.
+   DEBUG: 2026-02-14 17:01:55,977:      pdf_renderer.py:  470: printSegment: The timer was configured with Prescaler = 0 and Period = 65535, resulting in a PWM frequency of approximately
+   DEBUG: 2026-02-14 17:01:56,005:      pdf_renderer.py:  470: printSegment: 1.68 kHz (110 MHz / 65536), which is suitable for DC motor control. The PWM output is initiated once during task
+   DEBUG: 2026-02-14 17:01:56,009:      pdf_renderer.py:  470: printSegment: initialization and updated dynamically by writing to the Capture Compare Register (CCR1).
+   DEBUG: 2026-02-14 17:01:56,146:      pdf_renderer.py:  470: printSegment: The 12-bit ADC value (0–4095) is mapped to the PWM duty cycle range (0–65535). This ensures smooth and proportional
+   DEBUG: 2026-02-14 17:01:56,209:      pdf_renderer.py:  470: printSegment: speed control across the full rotation of the potentiometer. Following safety requirements, speed updates are applied
+   DEBUG: 2026-02-14 17:01:56,230:      pdf_renderer.py:  470: printSegment: only when the motor is in CW or CCW mode. In STOP mode, the PWM compare value is forced to 0, and the
+   DEBUG: 2026-02-14 17:01:56,234:      pdf_renderer.py:  470: printSegment: Standby pin (PE15) is driven LOW to ensure the motor remains completely stationary regardless of the
+   DEBUG: 2026-02-14 17:01:56,236:      pdf_renderer.py:  470: printSegment: potentiometer position.
+   DEBUG: 2026-02-14 17:01:56,239:      pdf_renderer.py:  470: printSegment: 3.5 UI Task – Speed Acquisition and Control Request
+   DEBUG: 2026-02-14 17:01:56,268:      pdf_renderer.py:  470: printSegment: The UITask (Priority: Low) is responsible for acquiring user input and converting it into a speed request. It runs
+   DEBUG: 2026-02-14 17:01:56,272:      pdf_renderer.py:  470: printSegment: periodically with a 30 ms execution interval, providing responsive control while yielding CPU time to
+   DEBUG: 2026-02-14 17:01:56,274:      pdf_renderer.py:  470: printSegment: higher-priority tasks.
+   DEBUG: 2026-02-14 17:01:56,287:      pdf_renderer.py:  470: printSegment: To avoid blocking the processor, the ADC is configured in Interrupt Mode. The task initiates a conversion and then
+   DEBUG: 2026-02-14 17:01:56,289:      pdf_renderer.py:  470: printSegment: waits on a Binary Semaphore which is released by the 
+   DEBUG: 2026-02-14 17:01:56,291:      pdf_renderer.py:  470: printSegment: HAL_ADC_ConvCpltCallback
+   DEBUG: 2026-02-14 17:01:56,294:      pdf_renderer.py:  470: printSegment: . Once unblocked, the
+   DEBUG: 2026-02-14 17:01:56,296:      pdf_renderer.py:  470: printSegment: task reads the 12-bit value from PC0.
+   DEBUG: 2026-02-14 17:01:56,298:      pdf_renderer.py:  470: printSegment: void StartUITask(void *argument)
+   DEBUG: 2026-02-14 17:01:56,299:      pdf_renderer.py:  470: printSegment: {
+   DEBUG: 2026-02-14 17:01:56,301:      pdf_renderer.py:  470: printSegment:     TickType_t xLastWakeTime = xTaskGetTickCount();
+   DEBUG: 2026-02-14 17:01:56,303:      pdf_renderer.py:  470: printSegment:     const TickType_t xPeriod = pdMS_TO_TICKS(30);
+   DEBUG: 2026-02-14 17:01:56,304:      pdf_renderer.py:  470: printSegment:     uint32_t adcValue = 0;
+   DEBUG: 2026-02-14 17:01:56,306:      pdf_renderer.py:  470: printSegment:     for (;;)
+   DEBUG: 2026-02-14 17:01:56,307:      pdf_renderer.py:  470: printSegment:     {
+   DEBUG: 2026-02-14 17:01:56,309:      pdf_renderer.py:  470: printSegment:         HAL_ADC_Start_IT(&hadc1);
+   DEBUG: 2026-02-14 17:01:56,313:      pdf_renderer.py:  470: printSegment:         if (osSemaphoreAcquire(adcSemaphoreHandle,
+   DEBUG: 2026-02-14 17:01:56,315:      pdf_renderer.py:  470: printSegment: pdMS_TO_TICKS(5)) == osOK)
+   DEBUG: 2026-02-14 17:01:56,316:      pdf_renderer.py:  470: printSegment:         {
+   DEBUG: 2026-02-14 17:01:56,318:      pdf_renderer.py:  470: printSegment:             adcValue = HAL_ADC_GetValue(&hadc1);
+   DEBUG: 2026-02-14 17:01:56,319:      pdf_renderer.py:  470: printSegment:             if (uiMotorState != MOTOR_STOP)
+   DEBUG: 2026-02-14 17:01:56,320:      pdf_renderer.py:  470: printSegment:             {
+   DEBUG: 2026-02-14 17:01:56,322:      pdf_renderer.py:  470: printSegment:                 uiPwmDuty = (adcValue * htim1.Init.Period) / 4095;
+   DEBUG: 2026-02-14 17:01:56,323:      pdf_renderer.py:  470: printSegment:             }
+   DEBUG: 2026-02-14 17:01:56,324:      pdf_renderer.py:  470: printSegment:         }
+   DEBUG: 2026-02-14 17:01:56,326:      pdf_renderer.py:  470: printSegment:         vTaskDelayUntil(&xLastWakeTime, xPeriod);
+   DEBUG: 2026-02-14 17:01:56,327:      pdf_renderer.py:  470: printSegment:     }
+   DEBUG: 2026-02-14 17:01:56,328:      pdf_renderer.py:  470: printSegment: }
+   DEBUG: 2026-02-14 17:01:56,329:      pdf_renderer.py:  470: printSegment: The task then scales this value and assigns it to the protected shared variable 
+   DEBUG: 2026-02-14 17:01:56,332:      pdf_renderer.py:  470: printSegment: uiPwmDuty
+   DEBUG: 2026-02-14 17:01:56,346:      pdf_renderer.py:  470: printSegment: . By decoupling the ADC
+   DEBUG: 2026-02-14 17:01:56,352:      pdf_renderer.py:  470: printSegment: sampling from the MotorTask, we ensure that slow analog-to-digital conversions do not introduce jitter into the
+   DEBUG: 2026-02-14 17:01:56,353:      pdf_renderer.py:  470: printSegment: high-priority motor control loop.
+   DEBUG: 2026-02-14 17:01:56,355:      pdf_renderer.py:  470: printSegment: 3.6 Button Task – Event-Driven State Transitions
+   DEBUG: 2026-02-14 17:01:56,389:      pdf_renderer.py:  470: printSegment: The User Push Button (PC13) was configured using EXTI interrupt mode on the falling edge. To maintain a clean
+   DEBUG: 2026-02-14 17:01:56,399:      pdf_renderer.py:  470: printSegment: RTOS architecture, the Interrupt Service Routine (ISR) does not process logic; instead, it simply releases a Binary
+   DEBUG: 2026-02-14 17:01:56,402:      pdf_renderer.py:  470: printSegment: Semaphore to signal that an event has occurred.
+   DEBUG: 2026-02-14 17:01:56,404:      pdf_renderer.py:  470: printSegment: void BSP_PB_Callback(Button_TypeDef Button)
+   DEBUG: 2026-02-14 17:01:56,405:      pdf_renderer.py:  470: printSegment: {
+   DEBUG: 2026-02-14 17:01:56,406:      pdf_renderer.py:  470: printSegment:     if (Button == BUTTON_USER)
+   DEBUG: 2026-02-14 17:01:56,408:      pdf_renderer.py:  470: printSegment:     {
+   DEBUG: 2026-02-14 17:01:56,409:      pdf_renderer.py:  470: printSegment:         osSemaphoreRelease(buttonSemaphoreHandle);
+   DEBUG: 2026-02-14 17:01:56,410:      pdf_renderer.py:  470: printSegment:     }
+   DEBUG: 2026-02-14 17:01:56,411:      pdf_renderer.py:  470: printSegment: }
+   DEBUG: 2026-02-14 17:01:56,413:      pdf_renderer.py:  470: printSegment: The state transition logic follows the mandatory sequence: 
+   DEBUG: 2026-02-14 17:01:56,414:      pdf_renderer.py:  470: printSegment: STOP → CW → CCW → STOP
+   DEBUG: 2026-02-14 17:01:56,435:      pdf_renderer.py:  470: printSegment: void startButtonTask(void *argument)
+   DEBUG: 2026-02-14 17:01:56,437:      pdf_renderer.py:  470: printSegment: {
+   DEBUG: 2026-02-14 17:01:56,438:      pdf_renderer.py:  470: printSegment:     for(;;)
+   DEBUG: 2026-02-14 17:01:56,439:      pdf_renderer.py:  470: printSegment:     {
+   DEBUG: 2026-02-14 17:01:56,441:      pdf_renderer.py:  470: printSegment:         osSemaphoreAcquire(buttonSemaphoreHandle, osWaitForever);
+   DEBUG: 2026-02-14 17:01:56,443:      pdf_renderer.py:  470: printSegment:         switch(uiMotorState)
+   DEBUG: 2026-02-14 17:01:56,445:      pdf_renderer.py:  470: printSegment:         {
+   DEBUG: 2026-02-14 17:01:56,447:      pdf_renderer.py:  470: printSegment:             case MOTOR_STOP:  uiMotorState = MOTOR_CW;   break;
+   DEBUG: 2026-02-14 17:01:56,449:      pdf_renderer.py:  470: printSegment:             case MOTOR_CW:    uiMotorState = MOTOR_CCW;  break;
+   DEBUG: 2026-02-14 17:01:56,450:      pdf_renderer.py:  470: printSegment:             case MOTOR_CCW:
+   DEBUG: 2026-02-14 17:01:56,452:      pdf_renderer.py:  470: printSegment:             default:          uiMotorState = MOTOR_STOP;  break;
+   DEBUG: 2026-02-14 17:01:56,453:      pdf_renderer.py:  470: printSegment:         }
+   DEBUG: 2026-02-14 17:01:56,455:      pdf_renderer.py:  470: printSegment:         // Activate buzzer (non-blocking)
+   DEBUG: 2026-02-14 17:01:56,457:      pdf_renderer.py:  470: printSegment:         __HAL_TIM_SET_COMPARE(&htim5, TIM_CHANNEL_1, 250);
+   DEBUG: 2026-02-14 17:01:56,461:      pdf_renderer.py:  470: printSegment:         HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
+   DEBUG: 2026-02-14 17:01:56,465:      pdf_renderer.py:  470: printSegment:         osTimerStart(buzzerTimerHandle, 100);
+   DEBUG: 2026-02-14 17:01:56,467:      pdf_renderer.py:  470: printSegment:         // Log state change
+   DEBUG: 2026-02-14 17:01:56,469:      pdf_renderer.py:  470: printSegment:         osMessageQueuePut(logQueueHandle, &logMsg, 0, 0);
+   DEBUG: 2026-02-14 17:01:56,471:      pdf_renderer.py:  470: printSegment:     }
+   DEBUG: 2026-02-14 17:01:56,472:      pdf_renderer.py:  470: printSegment: }
+   DEBUG: 2026-02-14 17:01:56,475:      pdf_renderer.py:  470: printSegment: When the signal is received, the motor state is updated in the shared variable 
+   DEBUG: 2026-02-14 17:01:56,476:      pdf_renderer.py:  470: printSegment: uiMotorState
+   DEBUG: 2026-02-14 17:01:56,484:      pdf_renderer.py:  470: printSegment: . This event-driven
+   DEBUG: 2026-02-14 17:01:56,487:      pdf_renderer.py:  470: printSegment: approach is superior to polling because it allows the task to remain in a 
+   DEBUG: 2026-02-14 17:01:56,488:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,489:      pdf_renderer.py:  470: printSegment: Blocked
+   DEBUG: 2026-02-14 17:01:56,491:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,497:      pdf_renderer.py:  470: printSegment:  state (consuming zero CPU
+   DEBUG: 2026-02-14 17:01:56,499:      pdf_renderer.py:  470: printSegment: cycles) until the exact moment the user interacts with the hardware.
+   DEBUG: 2026-02-14 17:01:56,502:      pdf_renderer.py:  470: printSegment: 3.7 Buzzer Implementation – Non-Blocking Design
+   DEBUG: 2026-02-14 17:01:56,532:      pdf_renderer.py:  470: printSegment: The buzzer feedback was implemented on PA0 using TIM5 to generate a 2 kHz PWM signal. TIM5 was configured
+   DEBUG: 2026-02-14 17:01:56,534:      pdf_renderer.py:  470: printSegment: with Prescaler = 109 and Period = 499, yielding a frequency of 110 MHz / 110 / 500 = 2 kHz. To meet the strict 
+   DEBUG: 2026-02-14 17:01:56,535:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,536:      pdf_renderer.py:  470: printSegment: No
+   DEBUG: 2026-02-14 17:01:56,537:      pdf_renderer.py:  470: printSegment: Blocking
+   DEBUG: 2026-02-14 17:01:56,538:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,542:      pdf_renderer.py:  470: printSegment:  requirement (Section 9 of the lab manual), the 100 ms beep duration is managed by a FreeRTOS
+   DEBUG: 2026-02-14 17:01:56,543:      pdf_renderer.py:  470: printSegment: Software Timer.
+   DEBUG: 2026-02-14 17:01:56,544:      pdf_renderer.py:  470: printSegment: When a button press is detected:
+   DEBUG: 2026-02-14 17:01:56,545:      pdf_renderer.py:  470: printSegment:  1 
+   DEBUG: 2026-02-14 17:01:56,546:      pdf_renderer.py:  470: printSegment: HAL_TIM_PWM_Start()
+   DEBUG: 2026-02-14 17:01:56,548:      pdf_renderer.py:  470: printSegment:  is called to begin the 2 kHz tone.
+   DEBUG: 2026-02-14 17:01:56,549:      pdf_renderer.py:  470: printSegment:  2 
+   DEBUG: 2026-02-14 17:01:56,551:      pdf_renderer.py:  470: printSegment: A One-Shot Software Timer is started with a 100 ms period.
+   DEBUG: 2026-02-14 17:01:56,552:      pdf_renderer.py:  470: printSegment:  3 
+   DEBUG: 2026-02-14 17:01:56,554:      pdf_renderer.py:  470: printSegment: The task continues execution immediately (non-blocking).
+   DEBUG: 2026-02-14 17:01:56,555:      pdf_renderer.py:  470: printSegment:  4 
+   DEBUG: 2026-02-14 17:01:56,557:      pdf_renderer.py:  470: printSegment: When the timer expires, the Callback Function executes 
+   DEBUG: 2026-02-14 17:01:56,558:      pdf_renderer.py:  470: printSegment: HAL_TIM_PWM_Stop()
+   DEBUG: 2026-02-14 17:01:56,559:      pdf_renderer.py:  470: printSegment: .
+   DEBUG: 2026-02-14 17:01:56,561:      pdf_renderer.py:  470: printSegment: void BuzzerTimerCallback(void *argument)
+   DEBUG: 2026-02-14 17:01:56,562:      pdf_renderer.py:  470: printSegment: {
+   DEBUG: 2026-02-14 17:01:56,563:      pdf_renderer.py:  470: printSegment:     HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
+   DEBUG: 2026-02-14 17:01:56,564:      pdf_renderer.py:  470: printSegment: }
+   DEBUG: 2026-02-14 17:01:56,566:      pdf_renderer.py:  470: printSegment: This design ensures that neither the UI Task nor the Motor Task is ever 
+   DEBUG: 2026-02-14 17:01:56,568:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,569:      pdf_renderer.py:  470: printSegment: stalled
+   DEBUG: 2026-02-14 17:01:56,570:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,572:      pdf_renderer.py:  470: printSegment:  by a 
+   DEBUG: 2026-02-14 17:01:56,573:      pdf_renderer.py:  470: printSegment: HAL_Delay()
+   DEBUG: 2026-02-14 17:01:56,576:      pdf_renderer.py:  470: printSegment: , preserving
+   DEBUG: 2026-02-14 17:01:56,577:      pdf_renderer.py:  470: printSegment: the real-time responsiveness of the system.
+   DEBUG: 2026-02-14 17:01:56,579:      pdf_renderer.py:  470: printSegment: 3.8 Inter-Task Communication and Synchronization
+   DEBUG: 2026-02-14 17:01:56,581:      pdf_renderer.py:  470: printSegment: The system utilizes several RTOS primitives to ensure a deterministic and 
+   DEBUG: 2026-02-14 17:01:56,582:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,584:      pdf_renderer.py:  470: printSegment: race-condition free
+   DEBUG: 2026-02-14 17:01:56,585:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,586:      pdf_renderer.py:  470: printSegment:  environment:
+   DEBUG: 2026-02-14 17:01:56,587:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,589:      pdf_renderer.py:  470: printSegment: Binary Semaphores:
+   DEBUG: 2026-02-14 17:01:56,592:      pdf_renderer.py:  470: printSegment:  Used for ISR-to-Task synchronization (Button and ADC complete).
+   DEBUG: 2026-02-14 17:01:56,593:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,594:      pdf_renderer.py:  470: printSegment: Message Queues:
+   DEBUG: 2026-02-14 17:01:56,602:      pdf_renderer.py:  470: printSegment:  Used for the LoggerTask, allowing other tasks to send UART strings without
+   DEBUG: 2026-02-14 17:01:56,604:      pdf_renderer.py:  470: printSegment: waiting for the slow serial hardware to finish transmitting.
+   DEBUG: 2026-02-14 17:01:56,606:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,607:      pdf_renderer.py:  470: printSegment: Software Timers:
+   DEBUG: 2026-02-14 17:01:56,609:      pdf_renderer.py:  470: printSegment:  Used for non-blocking timing of the buzzer feedback.
+   DEBUG: 2026-02-14 17:01:56,610:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,612:      pdf_renderer.py:  470: printSegment: Volatile Variables:
+   DEBUG: 2026-02-14 17:01:56,613:      pdf_renderer.py:  470: printSegment:  Used for 
+   DEBUG: 2026-02-14 17:01:56,615:      pdf_renderer.py:  470: printSegment: uiMotorState
+   DEBUG: 2026-02-14 17:01:56,616:      pdf_renderer.py:  470: printSegment:  and 
+   DEBUG: 2026-02-14 17:01:56,618:      pdf_renderer.py:  470: printSegment: uiPwmDuty
+   DEBUG: 2026-02-14 17:01:56,623:      pdf_renderer.py:  470: printSegment: , ensuring the compiler does not
+   DEBUG: 2026-02-14 17:01:56,625:      pdf_renderer.py:  470: printSegment: optimize out memory reads across different task contexts.
+   DEBUG: 2026-02-14 17:01:56,627:      pdf_renderer.py:  470: printSegment: 3.9 Task Priority Logic
+   DEBUG: 2026-02-14 17:01:56,688:      pdf_renderer.py:  470: printSegment: To ensure system stability, the MotorTask was assigned a higher priority than the UITask. This prevents the motor
+   DEBUG: 2026-02-14 17:01:56,720:      pdf_renderer.py:  470: printSegment: control loop from being interrupted by user-interface processing (like ADC sampling or UART logging). This
+   DEBUG: 2026-02-14 17:01:56,731:      pdf_renderer.py:  470: printSegment: hierarchy ensures deterministic hardware updates, which is critical for real-time safety, while the lower-priority
+   DEBUG: 2026-02-14 17:01:56,733:      pdf_renderer.py:  470: printSegment: UITask utilizes remaining CPU cycles for human-centric interactions.
+   DEBUG: 2026-02-14 17:01:56,735:      pdf_renderer.py:  470: printSegment: | Task Name | Priority Level | Priority Value | Stack Size | Role |
+   DEBUG: 2026-02-14 17:01:56,737:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,738:      pdf_renderer.py:  470: printSegment: |---|---|---|---|---|
+   DEBUG: 2026-02-14 17:01:56,740:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,745:      pdf_renderer.py:  470: printSegment: | MotorTask | Highest |
+   DEBUG: 2026-02-14 17:01:56,747:      pdf_renderer.py:  470: printSegment: osPriorityAboveNormal | 512 bytes | Motor hardware control |
+   DEBUG: 2026-02-14 17:01:56,749:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,753:      pdf_renderer.py:  470: printSegment: | LoggerTask | High | osPriorityAboveNormal | 512
+   DEBUG: 2026-02-14 17:01:56,754:      pdf_renderer.py:  470: printSegment: bytes | UART communication |
+   DEBUG: 2026-02-14 17:01:56,756:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,758:      pdf_renderer.py:  470: printSegment: | DefaultTask | Normal | osPriorityNormal | 512 bytes | System idle |
+   DEBUG: 2026-02-14 17:01:56,760:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,764:      pdf_renderer.py:  470: printSegment: | UITask | Low |
+   DEBUG: 2026-02-14 17:01:56,766:      pdf_renderer.py:  470: printSegment: osPriorityLow | 512 bytes | ADC speed control |
+   DEBUG: 2026-02-14 17:01:56,768:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,770:      pdf_renderer.py:  470: printSegment: | ButtonTask | Low | osPriorityLow | 512 bytes | State transitions |
+   DEBUG: 2026-02-14 17:01:56,771:      pdf_renderer.py:  470: printSegment:  
+   DEBUG: 2026-02-14 17:01:56,777:      pdf_renderer.py:  470: printSegment: |
+   DEBUG: 2026-02-14 17:01:56,779:      pdf_renderer.py:  470: printSegment: SysStatusTask | Low | osPriorityLow | 512 bytes | Heartbeat logging |
+   DEBUG: 2026-02-14 17:01:56,782:      pdf_renderer.py:  470: printSegment: Results and Verification
+   DEBUG: 2026-02-14 17:01:56,808:      pdf_renderer.py:  470: printSegment: The system was tested to verify compliance with all functional and architectural requirements specified in the
+   DEBUG: 2026-02-14 17:01:56,819:      pdf_renderer.py:  470: printSegment: laboratory instructions. Testing included reset behavior, task execution, motor state transitions, speed control, LED
+   DEBUG: 2026-02-14 17:01:56,822:      pdf_renderer.py:  470: printSegment: behavior, and buzzer feedback.
+   DEBUG: 2026-02-14 17:01:56,825:      pdf_renderer.py:  470: printSegment: 4.1 FreeRTOS Scheduler and Task Execution
+   DEBUG: 2026-02-14 17:01:56,834:      pdf_renderer.py:  470: printSegment: Upon system startup, the FreeRTOS scheduler was successfully initialized. Multiple tasks were observed executing
+   DEBUG: 2026-02-14 17:01:56,837:      pdf_renderer.py:  470: printSegment: concurrently with the following verified timing:
+   DEBUG: 2026-02-14 17:01:56,838:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,840:      pdf_renderer.py:  470: printSegment: MotorTask:
+   DEBUG: 2026-02-14 17:01:56,842:      pdf_renderer.py:  470: printSegment:  Executed every 15 ms using 
+   DEBUG: 2026-02-14 17:01:56,844:      pdf_renderer.py:  470: printSegment: vTaskDelayUntil()
+   DEBUG: 2026-02-14 17:01:56,846:      pdf_renderer.py:  470: printSegment: , providing deterministic control.
+   DEBUG: 2026-02-14 17:01:56,847:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,848:      pdf_renderer.py:  470: printSegment: UITask:
+   DEBUG: 2026-02-14 17:01:56,850:      pdf_renderer.py:  470: printSegment:  Executed every 30 ms, providing responsive user input sampling.
+   DEBUG: 2026-02-14 17:01:56,851:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,852:      pdf_renderer.py:  470: printSegment: Button/Logger Tasks:
+   DEBUG: 2026-02-14 17:01:56,855:      pdf_renderer.py:  470: printSegment:  Remained in the Blocked state when idle, confirming efficient CPU
+   DEBUG: 2026-02-14 17:01:56,856:      pdf_renderer.py:  470: printSegment: utilization.
+   DEBUG: 2026-02-14 17:01:56,858:      pdf_renderer.py:  470: printSegment: UART logs confirmed that tasks were running concurrently without any 
+   DEBUG: 2026-02-14 17:01:56,859:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,860:      pdf_renderer.py:  470: printSegment: stalls.
+   DEBUG: 2026-02-14 17:01:56,861:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,870:      pdf_renderer.py:  470: printSegment:  The system heartbeat message was
+   DEBUG: 2026-02-14 17:01:56,872:      pdf_renderer.py:  470: printSegment: transmitted over UART every second, verifying that the scheduler remained active and stable.
+   DEBUG: 2026-02-14 17:01:56,874:      pdf_renderer.py:  470: printSegment: 4.2 Initial State Verification
+   DEBUG: 2026-02-14 17:01:56,876:      pdf_renderer.py:  470: printSegment: Immediately after a hardware reset, the system correctly entered the mandatory initial state:
+   DEBUG: 2026-02-14 17:01:56,878:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,879:      pdf_renderer.py:  470: printSegment: Motor State:
+   DEBUG: 2026-02-14 17:01:56,880:      pdf_renderer.py:  470: printSegment:  STOP
+   DEBUG: 2026-02-14 17:01:56,881:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,883:      pdf_renderer.py:  470: printSegment: Hardware State:
+   DEBUG: 2026-02-14 17:01:56,884:      pdf_renderer.py:  470: printSegment:  PE15 (STB) driven LOW; PB10/PB11 driven LOW.
+   DEBUG: 2026-02-14 17:01:56,885:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,887:      pdf_renderer.py:  470: printSegment: PWM Duty Cycle:
+   DEBUG: 2026-02-14 17:01:56,888:      pdf_renderer.py:  470: printSegment:  0% (PE9).
+   DEBUG: 2026-02-14 17:01:56,889:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,890:      pdf_renderer.py:  470: printSegment: LED Indication:
+   DEBUG: 2026-02-14 17:01:56,892:      pdf_renderer.py:  470: printSegment:  Red LED ON; Green and Blue LEDs OFF.
+   DEBUG: 2026-02-14 17:01:56,893:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,894:      pdf_renderer.py:  470: printSegment: Motor Behavior:
+   DEBUG: 2026-02-14 17:01:56,896:      pdf_renderer.py:  470: printSegment:  Stationary.
+   DEBUG: 2026-02-14 17:01:56,899:      pdf_renderer.py:  470: printSegment: This confirms compliance with the safety requirement that the motor must not rotate unintentionally upon system
+   DEBUG: 2026-02-14 17:01:56,900:      pdf_renderer.py:  470: printSegment: power-up.
+   DEBUG: 2026-02-14 17:01:56,902:      pdf_renderer.py:  470: printSegment: 4.3 Motor Direction Verification
+   DEBUG: 2026-02-14 17:01:56,906:      pdf_renderer.py:  470: printSegment: Motor direction was tested by cycling through states using the user button. The observed behavior matched the
+   DEBUG: 2026-02-14 17:01:56,908:      pdf_renderer.py:  470: printSegment: requirements perfectly:
+   DEBUG: 2026-02-14 17:01:56,909:      pdf_renderer.py:  470: printSegment:  1 
+   DEBUG: 2026-02-14 17:01:56,910:      pdf_renderer.py:  470: printSegment: First Press (CW):
+   DEBUG: 2026-02-14 17:01:56,912:      pdf_renderer.py:  470: printSegment:  Green LED ON; PB10=LOW, PB11=HIGH.
+   DEBUG: 2026-02-14 17:01:56,913:      pdf_renderer.py:  470: printSegment:  2 
+   DEBUG: 2026-02-14 17:01:56,915:      pdf_renderer.py:  470: printSegment: Second Press (CCW):
+   DEBUG: 2026-02-14 17:01:56,918:      pdf_renderer.py:  470: printSegment:  Blue LED ON; PB10=HIGH, PB11=LOW.
+   DEBUG: 2026-02-14 17:01:56,920:      pdf_renderer.py:  470: printSegment:  3 
+   DEBUG: 2026-02-14 17:01:56,922:      pdf_renderer.py:  470: printSegment: Third Press (STOP):
+   DEBUG: 2026-02-14 17:01:56,924:      pdf_renderer.py:  470: printSegment:  Red LED ON; PB10=LOW, PB11=LOW.
+   DEBUG: 2026-02-14 17:01:56,925:      pdf_renderer.py:  470: printSegment: Verification of 
+   DEBUG: 2026-02-14 17:01:56,927:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,928:      pdf_renderer.py:  470: printSegment: Only one LED active
+   DEBUG: 2026-02-14 17:01:56,930:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:56,931:      pdf_renderer.py:  470: printSegment: :
+   DEBUG: 2026-02-14 17:01:56,940:      pdf_renderer.py:  470: printSegment:  During transitions, the previous LED was successfully extinguished
+   DEBUG: 2026-02-14 17:01:56,942:      pdf_renderer.py:  470: printSegment: before the new state LED was illuminated, ensuring clear visual feedback.
+   DEBUG: 2026-02-14 17:01:56,944:      pdf_renderer.py:  470: printSegment: 4.4 Speed Control (Open-Loop Verification)
+   DEBUG: 2026-02-14 17:01:56,952:      pdf_renderer.py:  470: printSegment: The potentiometer (on PC0) was rotated to verify open-loop speed control. The 12-bit ADC value was successfully
+   DEBUG: 2026-02-14 17:01:56,954:      pdf_renderer.py:  470: printSegment: mapped to the TIM1 compare register.
+   DEBUG: 2026-02-14 17:01:56,955:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,957:      pdf_renderer.py:  470: printSegment: Responsiveness:
+   DEBUG: 2026-02-14 17:01:56,960:      pdf_renderer.py:  470: printSegment:  Increasing the potentiometer position resulted in a smooth, proportional increase in
+   DEBUG: 2026-02-14 17:01:56,962:      pdf_renderer.py:  470: printSegment: motor RPM.
+   DEBUG: 2026-02-14 17:01:56,963:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,965:      pdf_renderer.py:  470: printSegment: State Constraint:
+   DEBUG: 2026-02-14 17:01:56,971:      pdf_renderer.py:  470: printSegment:  PWM remained at zero when the motor was in the STOP state, regardless of
+   DEBUG: 2026-02-14 17:01:56,973:      pdf_renderer.py:  470: printSegment: potentiometer position, satisfying the safety logic.
+   DEBUG: 2026-02-14 17:01:56,975:      pdf_renderer.py:  470: printSegment: 4.5 Buzzer Feedback Verification
+   DEBUG: 2026-02-14 17:01:56,989:      pdf_renderer.py:  470: printSegment: Each button press triggered an audible 2 kHz beep. Crucially, the use of a FreeRTOS Software Timer meant that the
+   DEBUG: 2026-02-14 17:01:56,992:      pdf_renderer.py:  470: printSegment: 100 ms beep did not block the task execution.
+   DEBUG: 2026-02-14 17:01:56,993:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:56,996:      pdf_renderer.py:  470: printSegment: The system remained responsive to further inputs during the beep.
+   DEBUG: 2026-02-14 17:01:56,997:      pdf_renderer.py:  470: printSegment: l
+   DEBUG: 2026-02-14 17:01:57,000:      pdf_renderer.py:  470: printSegment: No jitter was observed in the MotorTask timing during buzzer activation.
+   DEBUG: 2026-02-14 17:01:57,001:      pdf_renderer.py:  470: printSegment: 4.6 Logging and System Stability
+   DEBUG: 2026-02-14 17:01:57,004:      pdf_renderer.py:  470: printSegment: UART logging provided real-time telemetry of state changes (e.g., 
+   DEBUG: 2026-02-14 17:01:57,005:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:57,006:      pdf_renderer.py:  470: printSegment: [
+   DEBUG: 2026-02-14 17:01:57,007:      pdf_renderer.py:  470: printSegment: EVENT
+   DEBUG: 2026-02-14 17:01:57,008:      pdf_renderer.py:  470: printSegment: ]
+   DEBUG: 2026-02-14 17:01:57,009:      pdf_renderer.py:  470: printSegment:  Button: CW
+   DEBUG: 2026-02-14 17:01:57,010:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:57,034:      pdf_renderer.py:  470: printSegment: ) and system heartbeat
+   DEBUG: 2026-02-14 17:01:57,056:      pdf_renderer.py:  470: printSegment: messages. The system operated continuously during extended testing without crashes or unintended resets, proving
+   DEBUG: 2026-02-14 17:01:57,058:      pdf_renderer.py:  470: printSegment: the stability of the task architecture and the effectiveness of using semaphores for synchronization.
+   DEBUG: 2026-02-14 17:01:57,059:      pdf_renderer.py:  470: printSegment: Discussion
+   DEBUG: 2026-02-14 17:01:57,096:      pdf_renderer.py:  470: printSegment: This laboratory demonstrated the implementation of a real-time embedded control system using FreeRTOS. The
+   DEBUG: 2026-02-14 17:01:57,111:      pdf_renderer.py:  470: printSegment: primary objective was to design a deterministic and modular architecture that follows real-time system principles,
+   DEBUG: 2026-02-14 17:01:57,113:      pdf_renderer.py:  470: printSegment: ensuring that time-critical motor control is never compromised by secondary tasks.
+   DEBUG: 2026-02-14 17:01:57,115:      pdf_renderer.py:  470: printSegment: Architectural Separation
+   DEBUG: 2026-02-14 17:01:57,190:      pdf_renderer.py:  470: printSegment: A key design decision was separating decision-making from hardware actuation. The UITask and Button ISR
+   DEBUG: 2026-02-14 17:01:57,231:      pdf_renderer.py:  470: printSegment: determine the requested motor state and speed, while the MotorTask applies these requests periodically. This
+   DEBUG: 2026-02-14 17:01:57,247:      pdf_renderer.py:  470: printSegment: separation ensures that hardware control remains centralized. By centralizing all writes to TIM1 (PE9) and GPIO
+   DEBUG: 2026-02-14 17:01:57,249:      pdf_renderer.py:  470: printSegment: (PB10/11) within one high-priority task, we eliminate the risk of conflicting hardware commands.
+   DEBUG: 2026-02-14 17:01:57,251:      pdf_renderer.py:  470: printSegment: Task Prioritization and Determinism
+   DEBUG: 2026-02-14 17:01:57,259:      pdf_renderer.py:  470: printSegment: The MotorTask was assigned a higher priority because it manages physical actuation. Deterministic updates are
+   DEBUG: 2026-02-14 17:01:57,261:      pdf_renderer.py:  470: printSegment: essential for safe motor operation; using 
+   DEBUG: 2026-02-14 17:01:57,263:      pdf_renderer.py:  470: printSegment: vTaskDelayUntil()
+   DEBUG: 2026-02-14 17:01:57,317:      pdf_renderer.py:  470: printSegment:  ensures a fixed-period execution of 15 ms and
+   DEBUG: 2026-02-14 17:01:57,340:      pdf_renderer.py:  470: printSegment: minimizes timing jitter. In contrast, the UITask operates at a lower priority. While sampling the potentiometer on
+   DEBUG: 2026-02-14 17:01:57,345:      pdf_renderer.py:  470: printSegment: PC0 is important, a human user cannot perceive millisecond-level jitter in speed updates, making it a non-critical
+   DEBUG: 2026-02-14 17:01:57,346:      pdf_renderer.py:  470: printSegment: background operation.
+   DEBUG: 2026-02-14 17:01:57,348:      pdf_renderer.py:  470: printSegment: Efficient Synchronization
+   DEBUG: 2026-02-14 17:01:57,350:      pdf_renderer.py:  470: printSegment: To maximize CPU efficiency, the system avoids 
+   DEBUG: 2026-02-14 17:01:57,351:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:57,353:      pdf_renderer.py:  470: printSegment: busy-waiting
+   DEBUG: 2026-02-14 17:01:57,354:      pdf_renderer.py:  470: printSegment: "
+   DEBUG: 2026-02-14 17:01:57,438:      pdf_renderer.py:  470: printSegment:  (polling). Event-driven synchronization was
+   DEBUG: 2026-02-14 17:01:57,489:      pdf_renderer.py:  470: printSegment: implemented using Binary Semaphores for button presses and ADC completion. This allows tasks to remain in a
+   DEBUG: 2026-02-14 17:01:57,514:      pdf_renderer.py:  470: printSegment: Blocked state, consuming zero CPU cycles until the hardware is ready. Furthermore, the buzzer implementation
+   DEBUG: 2026-02-14 17:01:57,517:      pdf_renderer.py:  470: printSegment: using a FreeRTOS Software Timer is a critical design choice. It allows for a 100 ms pulse without using 
+   DEBUG: 2026-02-14 17:01:57,519:      pdf_renderer.py:  470: printSegment: HAL_Delay()
+   DEBUG: 2026-02-14 17:01:57,521:      pdf_renderer.py:  470: printSegment: , thus satisfying the requirement that no task should block the scheduler.
+   DEBUG: 2026-02-14 17:01:57,522:      pdf_renderer.py:  470: printSegment: Future Improvements
+   DEBUG: 2026-02-14 17:01:57,618:      pdf_renderer.py:  470: printSegment: The current system operates in open-loop mode, where the PWM duty cycle is set directly by the ADC. While
+   DEBUG: 2026-02-14 17:01:57,674:      pdf_renderer.py:  470: printSegment: effective for this lab, open-loop control cannot compensate for load variations or battery voltage drops. To improve
+   DEBUG: 2026-02-14 17:01:57,692:      pdf_renderer.py:  470: printSegment: the design in future laboratories, a closed-loop feedback mechanism (such as a PID controller using an encoder)
+   DEBUG: 2026-02-14 17:01:57,695:      pdf_renderer.py:  470: printSegment: could be integrated into the MotorTask to maintain a constant RPM regardless of external torque.
+   DEBUG: 2026-02-14 17:01:57,697:      pdf_renderer.py:  470: printSegment: Conclusion
+   DEBUG: 2026-02-14 17:01:57,744:      pdf_renderer.py:  470: printSegment: This laboratory successfully implemented a FreeRTOS-based embedded system for open-loop DC motor control on
+   DEBUG: 2026-02-14 17:01:57,768:      pdf_renderer.py:  470: printSegment: the STM32L5 platform. The system fully met all functional requirements, including deterministic task scheduling,
+   DEBUG: 2026-02-14 17:01:57,774:      pdf_renderer.py:  470: printSegment: high-resolution PWM-based speed control via TIM1 (PE9), GPIO-based direction control (PB10/PB11), and
+   DEBUG: 2026-02-14 17:01:57,776:      pdf_renderer.py:  470: printSegment: safety-conscious standby management (PE15).
+   DEBUG: 2026-02-14 17:01:57,848:      pdf_renderer.py:  470: printSegment: A robust real-time architecture was achieved by strictly separating user interaction from motor actuation. The
+   DEBUG: 2026-02-14 17:01:57,894:      pdf_renderer.py:  470: printSegment: MotorTask was prioritized to ensure stable hardware control with minimal jitter, while the UITask managed
+   DEBUG: 2026-02-14 17:01:57,908:      pdf_renderer.py:  470: printSegment: non-critical ADC sampling and speed requests. The use of event-driven synchronization ensured a completely
+   DEBUG: 2026-02-14 17:01:57,911:      pdf_renderer.py:  470: printSegment: non-blocking execution environment, adhering to best practices for real-time systems design.
+   DEBUG: 2026-02-14 17:01:57,989:      pdf_renderer.py:  470: printSegment: All mandatory behaviour was verified: the system reliably initializes to a STOP state with the Red LED active,
+   DEBUG: 2026-02-14 17:01:58,031:      pdf_renderer.py:  470: printSegment: provides smooth speed variation via the potentiometer, and delivers consistent audible feedback without stalling the
+   DEBUG: 2026-02-14 17:01:58,048:      pdf_renderer.py:  470: printSegment: scheduler. Overall, this laboratory established a modular and scalable foundation that is well-suited for future
+   DEBUG: 2026-02-14 17:01:58,051:      pdf_renderer.py:  470: printSegment: enhancements, such as the integration of encoder feedback and closed-loop PID control.
+   DEBUG: 2026-02-14 17:01:58,052:      pdf_renderer.py:   53: 0, [1, 'Lab 2 – FreeRTOS Setup and Basic Motor Control (Open-Loop)', 1, 68.0]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 1, [2, 'Introduction', 1, 262.0]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 2, [2, 'Equipment', 1, 421.6]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 3, [3, 'Hardware', 1, 454.8]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 4, [3, 'Software', 1, 639.6]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 5, [2, 'Design Process', 2, 70.0]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 6, [3, '3.1 Overall Architecture', 2, 103.19999999999999]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 7, [3, '3.2 Motor State Design and Shared Control Variables', 2, 342.0]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 8, [3, '3.3 Motor Task – Deterministic Actuation Layer', 2, 652.8]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 9, [3, '3.4 PWM Configuration (TIM1)', 4, 356.4]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 10, [3, '3.5 UI Task – Speed Acquisition and Control Request', 4, 505.19999999999993]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 11, [3, '3.6 Button Task – Event-Driven State Transitions', 5, 266.4]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 12, [3, '3.7 Buzzer Implementation – Non-Blocking Design', 6, 98.4]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 13, [3, '3.8 Inter-Task Communication and Synchronization', 6, 349.2]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 14, [3, '3.9 Task Priority Logic', 6, 479.99999999999994]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 15, [2, 'Results and Verification', 6, 629.1999999999998]
+   DEBUG: 2026-02-14 17:01:58,053:      pdf_renderer.py:   53: 16, [3, '4.1 FreeRTOS Scheduler and Task Execution', 6, 704.3999999999997]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 17, [3, '4.2 Initial State Verification', 7, 206.4]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 18, [3, '4.3 Motor Direction Verification', 7, 355.2]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 19, [3, '4.4 Speed Control (Open-Loop Verification)', 7, 491.99999999999994]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 20, [3, '4.5 Buzzer Feedback Verification', 7, 610.8]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 21, [3, '4.6 Logging and System Stability', 7, 705.5999999999999]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 22, [2, 'Discussion', 8, 128.8]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 23, [3, 'Architectural Separation', 8, 204.00000000000003]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 24, [3, 'Task Prioritization and Determinism', 8, 286.8]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 25, [3, 'Efficient Synchronization', 8, 381.59999999999997]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 26, [3, 'Future Improvements', 8, 476.3999999999999]
+   DEBUG: 2026-02-14 17:01:58,054:      pdf_renderer.py:   53: 27, [2, 'Conclusion', 8, 559.5999999999999]
