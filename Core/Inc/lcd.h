@@ -39,7 +39,7 @@ typedef enum{
 } LCD_ControlByte;
 
 typedef enum{
-	FIRST_LINE = 0x0C,
+	FIRST_LINE = 0x80,
 	SECOND_LINE = 0xC0
 } lcdLines;
 
