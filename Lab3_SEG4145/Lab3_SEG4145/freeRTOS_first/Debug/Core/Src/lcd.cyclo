@@ -1,0 +1,11 @@
+../Core/Src/lcd.c:26:7:getLCDLineOne	1
+../Core/Src/lcd.c:31:7:getLCDLineTwo	1
+../Core/Src/lcd.c:36:9:getRGB_R	1
+../Core/Src/lcd.c:40:9:getRGB_G	1
+../Core/Src/lcd.c:44:9:getRGB_B	1
+../Core/Src/lcd.c:48:6:LCD_Init	1
+../Core/Src/lcd.c:101:6:LCD_DisplayText	5
+../Core/Src/lcd.c:141:6:LCD_Print	5
+../Core/Src/lcd.c:166:6:setLCD_RGB	1
+../Core/Src/lcd.c:175:12:I2C_SendToSlave	2
+../Core/Src/lcd.c:188:12:LCD_SendMessage	7
