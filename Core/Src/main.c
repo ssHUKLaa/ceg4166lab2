@@ -25,6 +25,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "timers.h"
 #include "lcd.h"
 #include "encoder.h"
 #include "motor.h"
@@ -34,6 +37,11 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef enum {
+  TOUCH_PROTO_NONE = 0,
+  TOUCH_PROTO_AT42QT1070,
+  TOUCH_PROTO_MPR121
+} TouchProtocol;
 
 /* USER CODE END PTD */
 
@@ -79,6 +87,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+I2C_HandleTypeDef hi2c2;
 
 UART_HandleTypeDef hlpuart1;
 
@@ -145,6 +154,7 @@ static void MX_GPIO_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C2_Init(void);
 static void MX_TIM1_Init(void);
 void StartTask1(void *argument);
 void StartTask2(void *argument);
@@ -156,7 +166,7 @@ static void Touch_LogI2CScan(void);
 static bool Touch_Mpr121Init(uint16_t addr);
 static bool Touch_TryAutodetect(void);
 static bool Touch_ReadCommandState(MotorState *stateOut);
-static void Motor_ApplyCommand(const MotorCommand *cmd);
+static void Motor_ApplyCommandLegacy(const MotorCommand *cmd);
 static uint16_t ReadDutyPercent(void);
 static MotorState CycleState(MotorState s);
 static const char *MotorStateStr(MotorState s);
@@ -324,15 +334,15 @@ static bool Touch_ReadCommandState(MotorState *stateOut)
 
   /* Deterministic priority: STOP(0) > CCW(2) > CW(1) */
   if (mask & (1U << 0)) {
-    *stateOut = STOP;
+    *stateOut = MOTOR_STOP;
     return true;
   }
   if (mask & (1U << 2)) {
-    *stateOut = CCW;
+    *stateOut = MOTOR_CCW;
     return true;
   }
   if (mask & (1U << 1)) {
-    *stateOut = CW;
+    *stateOut = MOTOR_CW;
     return true;
   }
 
@@ -353,15 +363,15 @@ static uint16_t ReadDutyPercent(void)
 
 static MotorState CycleState(MotorState s)
 {
-  if (s == STOP) return CW;
-  if (s == CW) return CCW;
-  return STOP;
+  if (s == MOTOR_STOP) return MOTOR_CW;
+  if (s == MOTOR_CW) return MOTOR_CCW;
+  return MOTOR_STOP;
 }
 
 static const char *MotorStateStr(MotorState s)
 {
-  if (s == CW) return "CW";
-  if (s == CCW) return "CCW";
+  if (s == MOTOR_CW) return "CW";
+  if (s == MOTOR_CCW) return "CCW";
   return "STOP";
 }
 
@@ -395,19 +405,19 @@ static void Buzzer_Beep(void)
   }
 }
 
-static void Motor_ApplyCommand(const MotorCommand *cmd)
+static void Motor_ApplyCommandLegacy(const MotorCommand *cmd)
 {
-  uint16_t duty = (cmd->state == STOP) ? 0U : cmd->duty_percent;
+  uint16_t duty = (cmd->state == MOTOR_STOP) ? 0U : cmd->duty_percent;
   uint32_t pulse = ((uint32_t)htim1.Init.Period + 1U) * duty / 100U;
 
-  if (cmd->state == STOP) {
+  if (cmd->state == MOTOR_STOP) {
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10 | GPIO_PIN_11, GPIO_PIN_RESET);
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
     LD1_Set(GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
-  } else if (cmd->state == CW) {
+  } else if (cmd->state == MOTOR_CW) {
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
@@ -470,6 +480,7 @@ int main(void)
   MX_ICACHE_Init();
   MX_LPUART1_UART_Init();
   MX_ADC1_Init();
+  MX_I2C2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   printf("From main: Welcome to STM32 world !\r\n");
@@ -478,8 +489,8 @@ int main(void)
   {
     Error_Handler();
   }
-  MotorCommand initCmd = { .state = STOP, .duty_percent = 0U };
-  Motor_ApplyCommand(&initCmd);
+  MotorCommand initCmd = { .state = MOTOR_STOP, .duty_percent = 0U };
+  Motor_ApplyCommandLegacy(&initCmd);
   /* Detect blue-button polarity from idle level so press works on either board wiring. */
   buttonPressedState = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) ? GPIO_PIN_RESET : GPIO_PIN_SET;
   printf("[BUTTON] PC13 pressed_state=%s\r\n", buttonPressedState == GPIO_PIN_SET ? "HIGH" : "LOW");
@@ -690,6 +701,38 @@ static void MX_ADC1_Init(void)
 
   /* USER CODE END ADC1_Init 2 */
 
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x00707CBB;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**

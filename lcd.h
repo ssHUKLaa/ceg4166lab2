@@ -8,7 +8,7 @@
 #ifndef INC_LCD_H_
 #define INC_LCD_H_
 
-#include <stm32l5xx.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>

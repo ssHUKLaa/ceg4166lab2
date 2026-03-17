@@ -6,6 +6,8 @@
 #include "ui.h"
 #include "lcd.h"
 #include "stm32l5xx_hal.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 #include <stdio.h>
 
 /* Speed presets */
@@ -51,8 +53,8 @@ void UI_Init(void)
   LCD_Init();
   
   /* Display initial state */
-  LCD_DisplayStringLine(LINE1, "Target: STOP    ");
-  LCD_DisplayStringLine(LINE2, "Measured: 0 RPM ");
+  LCD_DisplayText("Target: STOP    ", FIRST_LINE);
+  LCD_DisplayText("Measured: 0 RPM ", SECOND_LINE);
   
   buzzer.state = BUZZER_IDLE;
 }
@@ -95,13 +97,13 @@ void UI_DisplaySpeed(uint16_t target_rpm, uint16_t measured_rpm)
     } else {
       snprintf(line1, sizeof(line1), "Target:%4u RPM ", target_rpm);
     }
-    LCD_DisplayStringLine(LINE1, (uint8_t *)line1);
+    LCD_DisplayText(line1, FIRST_LINE);
     lastDisplayedTarget = target_rpm;
   }
   
   if (measured_rpm != lastDisplayedMeasured) {
     snprintf(line2, sizeof(line2), "Measured:%3u RPM", measured_rpm);
-    LCD_DisplayStringLine(LINE2, (uint8_t *)line2);
+    LCD_DisplayText(line2, SECOND_LINE);
     lastDisplayedMeasured = measured_rpm;
   }
 }
@@ -130,7 +132,7 @@ void UI_DisplayState(MotorState state)
       break;
   }
   
-  LCD_DisplayStringLine(LINE1, (uint8_t *)line);
+  LCD_DisplayText(line, FIRST_LINE);
 }
 
 /**
