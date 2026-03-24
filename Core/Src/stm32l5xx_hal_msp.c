@@ -56,6 +56,33 @@
 
 /* USER CODE BEGIN 0 */
 
+void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
+{
+  if (hi2c->Instance == I2C2)
+  {
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C2;
+    PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_PCLK1;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_RCC_I2C2_CLK_ENABLE();
+    __HAL_RCC_GPIOF_CLK_ENABLE();
+    /* PF0/PF1 AF I2C2: configured in MX_GPIO_Init (main.c), must run before HAL_I2C_Init */
+  }
+}
+
+void HAL_I2C_MspDeInit(I2C_HandleTypeDef *hi2c)
+{
+  if (hi2c->Instance == I2C2)
+  {
+    __HAL_RCC_I2C2_CLK_DISABLE();
+  }
+}
+
 /* USER CODE END 0 */
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);

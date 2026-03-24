@@ -11,13 +11,18 @@
 #include <string.h>
 
 /* Encoder state */
-static volatile uint32_t pulseCount = 0;       // Total pulses received
-static volatile uint32_t lastPulseCount = 0;   // Pulse count at last speed update
-static volatile uint16_t measuredRPM = 0;      // Measured RPM
+static volatile uint32_t pulseCount = 0;
+static volatile uint32_t lastPulseCount = 0;
+static volatile uint16_t measuredRPM = 0;
+static volatile uint8_t encQuadState = 0;
 
-/* Variables for edge detection on quadrature channels */
-static volatile uint8_t channelA_lastState = 0;
-static volatile uint8_t channelB_lastState = 0;
+/* Gray-code quadrature transition: +1 CW, -1 CCW, 0 bounce or no change */
+static const int8_t encoderQuadLut[16] = {
+  0, +1, -1, 0,
+  -1, 0, 0, +1,
+  +1, 0, 0, -1,
+  0, -1, +1, 0
+};
 
 /**
  * @brief Initialize encoder pins and interrupts
@@ -30,9 +35,11 @@ void Encoder_Init(void)
   lastPulseCount = 0;
   measuredRPM = 0;
   
-  /* Read initial state of encoder pins */
-  channelA_lastState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) & 0x01;
-  channelB_lastState = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) & 0x01;
+  {
+    uint8_t a = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET) ? 1U : 0U;
+    uint8_t b = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET) ? 1U : 0U;
+    encQuadState = (uint8_t)((a << 1) | b);
+  }
 }
 
 /**
@@ -71,9 +78,11 @@ void Encoder_Update(void)
 {
   uint32_t pulse_delta;
   
-  /* Calculate pulse count difference in the sample period */
-  pulse_delta = pulseCount - lastPulseCount;
-  lastPulseCount = pulseCount;
+  /* Snapshot the volatile counter exactly once to avoid ISR race between
+   * the delta read and the lastPulseCount write. */
+  uint32_t current = pulseCount;
+  pulse_delta = current - lastPulseCount;
+  lastPulseCount = current;
   
   /* Convert pulse count to RPM
    * pulse_delta pulses in ENCODER_SAMPLE_PERIOD_MS milliseconds
@@ -81,49 +90,37 @@ void Encoder_Update(void)
    * RPM = (pulse_delta * 60,000) / (PPR_OUTPUT * sample_period_ms)
    */
   if (ENCODER_SAMPLE_PERIOD_MS > 0) {
-    measuredRPM = (uint16_t)((pulse_delta * 60000UL) / 
-                             (ENCODER_PPR_OUTPUT * ENCODER_SAMPLE_PERIOD_MS));
+    /* Sanity cap: at 350 RPM max, counts per 50 ms < 750. A delta larger than
+     * 3x that (2250) indicates a corrupted sample — discard it silently. */
+    if (pulse_delta > 2250UL) {
+      pulse_delta = 0;
+    }
+    measuredRPM = (uint16_t)((pulse_delta * 60000UL) /
+                             (ENCODER_COUNTS_PER_OUTPUT_REV * ENCODER_SAMPLE_PERIOD_MS));
   }
 }
 
-/**
- * @brief ISR callback for encoder channel A (PB0)
- * 
- * Called from HAL_GPIO_EXTI_Callback when PB0 changes
- */
+static void Encoder_OnQuadratureEdge(void)
+{
+  uint8_t a = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET) ? 1U : 0U;
+  uint8_t b = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET) ? 1U : 0U;
+  uint8_t curr = (uint8_t)((a << 1) | b);
+  uint8_t idx = (uint8_t)((encQuadState << 2) | curr);
+  int8_t step = encoderQuadLut[idx];
+  encQuadState = curr;
+  if (step > 0) {
+    pulseCount++;
+  } else if (step < 0 && pulseCount > 0U) {
+    pulseCount--;
+  }
+}
+
 void Encoder_ISR_ChannelA(void)
 {
-  uint8_t a = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) & 0x01;
-  uint8_t b = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) & 0x01;
-  
-  /* Quadrature encoder logic: count on A rising edge if B != A */
-  if (a != channelA_lastState) {
-    if (a == b) {
-      pulseCount++;  /* Forward (CW) */
-    } else {
-      if (pulseCount > 0) pulseCount--;  /* Backward (CCW) */
-    }
-    channelA_lastState = a;
-  }
+  Encoder_OnQuadratureEdge();
 }
 
-/**
- * @brief ISR callback for encoder channel B (PB1)
- * 
- * Called from HAL_GPIO_EXTI_Callback when PB1 changes
- */
 void Encoder_ISR_ChannelB(void)
 {
-  uint8_t a = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) & 0x01;
-  uint8_t b = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) & 0x01;
-  
-  /* Update B state and check quadrature */
-  if (b != channelB_lastState) {
-    if (a != b) {
-      pulseCount++;  /* Forward (CW) */
-    } else {
-      if (pulseCount > 0) pulseCount--;  /* Backward (CCW) */
-    }
-    channelB_lastState = b;
-  }
+  Encoder_OnQuadratureEdge();
 }

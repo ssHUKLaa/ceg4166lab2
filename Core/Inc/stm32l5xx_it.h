@@ -54,7 +54,10 @@ void UsageFault_Handler(void);
 void DebugMon_Handler(void);
 void TIM6_IRQHandler(void);
 /* USER CODE BEGIN EFP */
-
+void EXTI0_IRQHandler(void);
+void EXTI1_IRQHandler(void);
+void EXTI6_IRQHandler(void);
+void EXTI13_IRQHandler(void);
 /* USER CODE END EFP */
 
 #ifdef __cplusplus

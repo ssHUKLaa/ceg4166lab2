@@ -24,6 +24,15 @@ STM32CUBE_PATH = C:/Users/palim/STM32Cube/Repository/STM32Cube_FW_L5_V1.5.1
 # ARM GCC Toolchain path (from STM32CubeIDE)
 GCC_PATH = C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin
 
+# STM32CubeProgrammer CLI (same CubeIDE install; override path if the plugins folder version changes)
+CUBE_IDE_ROOT ?= C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE
+STM32_PROGRAMMER ?= $(firstword $(wildcard $(CUBE_IDE_ROOT)/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_*/tools/bin/STM32_Programmer_CLI.exe))
+# Optional: STLINK_SN = 066FFF484971754867083712  (from STM32_Programmer_CLI -l, when multiple probes)
+FLASH_CONNECT = port=SWD reset=HWrst
+ifneq ($(strip $(STLINK_SN)),)
+FLASH_CONNECT += sn=$(STLINK_SN)
+endif
+
 # Derived paths
 HAL_PATH = $(STM32CUBE_PATH)/Drivers/STM32L5xx_HAL_Driver
 CMSIS_PATH = $(STM32CUBE_PATH)/Drivers/CMSIS
@@ -42,10 +51,12 @@ Core/Src/stm32l5xx_hal_msp.c \
 Core/Src/system_stm32l5xx.c \
 Core/Src/syscalls.c \
 Core/Src/sysmem.c \
+Core/Src/stm32l5xx_hal_timebase_tim.c \
 Core/Src/encoder.c \
 Core/Src/motor.c \
 Core/Src/ui.c \
-Core/Src/lcd.c
+Core/Src/lcd.c \
+Core/Src/i2c2_bus.c
 
 # HAL Driver sources
 HAL_SOURCES = \
@@ -191,6 +202,24 @@ $(BUILD_DIR)/syscalls.o: Core/Src/syscalls.c | $(BUILD_DIR)
 $(BUILD_DIR)/sysmem.o: Core/Src/sysmem.c | $(BUILD_DIR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
+$(BUILD_DIR)/stm32l5xx_hal_timebase_tim.o: Core/Src/stm32l5xx_hal_timebase_tim.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/encoder.o: Core/Src/encoder.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/motor.o: Core/Src/motor.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/ui.o: Core/Src/ui.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/lcd.o: Core/Src/lcd.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/i2c2_bus.o: Core/Src/i2c2_bus.c | $(BUILD_DIR)
+	$(CC) -c $(CFLAGS) $< -o $@
+
 # Compile HAL sources
 $(BUILD_DIR)/stm32l5xx_hal.o: $(HAL_PATH)/Src/stm32l5xx_hal.c | $(BUILD_DIR)
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -326,9 +355,13 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 #######################################
-# flash
+# flash (STM32CubeProgrammer + ST-LINK SWD)
 #######################################
-flash: $(BUILD_DIR)/$(TARGET).bin
+flash: $(BUILD_DIR)/$(TARGET).hex
+	@"$(STM32_PROGRAMMER)" -c $(FLASH_CONNECT) -w "$(subst \,/, $<)" -v -rst
+
+# Alternate: open-source st-flash (must be on PATH)
+flash-stflash: $(BUILD_DIR)/$(TARGET).bin
 	st-flash write $< 0x8000000
 
 #######################################
@@ -336,4 +369,4 @@ flash: $(BUILD_DIR)/$(TARGET).bin
 #######################################
 -include $(wildcard $(BUILD_DIR)/*.d)
 
-.PHONY: all clean flash
+.PHONY: all clean flash flash-stflash

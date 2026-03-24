@@ -111,7 +111,7 @@ typedef struct {
 #define TOUCH_DEBOUNCE_MS        20    /* Task3 - Touch debouncing, 20 ms */
 
 /* Control event queue configuration */
-#define CONTROL_EVENT_QUEUE_LENGTH 16
+#define CONTROL_EVENT_QUEUE_LENGTH 64
 
 /* USER CODE END EM */
 

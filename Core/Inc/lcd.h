@@ -21,21 +21,15 @@ typedef enum{
 } I2C_Result;
 
 
-// For LCD module
-#define LCD_ADDRESS (0x3E << 1)
-#define LCD_RGB_ADDR (0x2D << 1)
+/* Grove / JHD1313: LCD 7-bit 0x3E. RGB: V4 PCA @ 0x62, V5 SGM @ 0x30 (auto-detect in setLCD_RGB).
+ * HD44780 commands use I2C prefix 0x80; data uses 0x40 (Seeed rgb_lcd.cpp). */
+#define LCD_ADDRESS (0x3EU << 1)
 #define LCD_WAIT 1
 #define LCD_DELAY_START_WAIT 15
 
-
-#define REG_RED 0x01
-#define REG_GREEN 0x02
-#define REG_BLUE 0x03
-
-
-typedef enum{
-	LCD_CommandByte = 0x00,
-	LCD_DataByte = 0x40
+typedef enum {
+	LCD_CommandByte = 0x80U,
+	LCD_DataByte = 0x40U
 } LCD_ControlByte;
 
 typedef enum{

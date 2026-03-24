@@ -7,7 +7,24 @@
 
 #include "main.h"
 #include "lcd.h"
+#include "i2c2_bus.h"
+#include "stm32l5xx_hal.h"
 #include <string.h>
+
+/* Seeed Grove LCD RGB Backlight — rgb_lcd.cpp / rgb_lcd.h (V4 PCA9633 @ 0x62, V5 @ 0x30). */
+#define RGB_ADDR_V4_HAL       (0x62U << 1)
+#define RGB_ADDR_V5_HAL       (0x30U << 1)
+
+/* PCA9633 (V4): MODE1, MODE2, LEDOUT then PWM2/3/4 for B/G/R */
+#define RGB_V4_REG_MODE1      0x00U
+#define RGB_V4_REG_MODE2      0x01U
+#define RGB_V4_REG_LEDOUT     0x08U
+#define RGB_V4_PWM_BLUE       0x02U
+#define RGB_V4_PWM_GREEN      0x03U
+#define RGB_V4_PWM_RED        0x04U
+
+static uint8_t rgb_board = 0U; /* 0=unknown, 4=V4, 5=V5 */
+static uint16_t rgb_hal_addr;
 
 
 extern I2C_HandleTypeDef hi2c2;
@@ -163,30 +180,66 @@ bool LCD_Print(const char* message, ...) {
 }
 
 
-void setLCD_RGB(uint8_t r, uint8_t g, uint8_t b){
+static void RGB_EnsureInited(void)
+{
+	if (rgb_board != 0U) {
+		return;
+	}
 
+	/* Prefer V5 (newer boards): probe SGM31323 @ 0x30 */
+	if (HAL_I2C_IsDeviceReady(&hi2c2, RGB_ADDR_V5_HAL, 3U, 15U) == HAL_OK) {
+		rgb_board = 5U;
+		rgb_hal_addr = RGB_ADDR_V5_HAL;
+		(void)I2C_SendToSlave(rgb_hal_addr, 0x00U, 0x07U);
+		HAL_Delay(1);
+		(void)I2C_SendToSlave(rgb_hal_addr, 0x04U, 0x15U);
+		return;
+	}
 
-	I2C_SendToSlave(LCD_RGB_ADDR, REG_RED, r);
-	I2C_SendToSlave(LCD_RGB_ADDR, REG_GREEN, g);
-	I2C_SendToSlave(LCD_RGB_ADDR, REG_BLUE, b);
-	return;
+	/* V4 PCA9633 @ 0x62 — same sequence as Seeed rgb_lcd::begin() */
+	rgb_board = 4U;
+	rgb_hal_addr = RGB_ADDR_V4_HAL;
+	(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_REG_MODE1, 0x00U);
+	(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_REG_LEDOUT, 0xFFU);
+	(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_REG_MODE2, 0x20U);
+}
+
+void setLCD_RGB(uint8_t r, uint8_t g, uint8_t b)
+{
+	I2c2Bus_Lock();
+	RGB_EnsureInited();
+
+	if (rgb_board == 5U) {
+		(void)I2C_SendToSlave(rgb_hal_addr, 0x06U, r);
+		(void)I2C_SendToSlave(rgb_hal_addr, 0x07U, g);
+		(void)I2C_SendToSlave(rgb_hal_addr, 0x08U, b);
+	} else if (rgb_board == 4U) {
+		(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_PWM_RED, r);
+		(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_PWM_GREEN, g);
+		(void)I2C_SendToSlave(rgb_hal_addr, RGB_V4_PWM_BLUE, b);
+	}
+
+	RGB_R_VALUE = r;
+	RGB_G_VALUE = g;
+	RGB_B_VALUE = b;
+	I2c2Bus_Unlock();
 }
 
 I2C_Result I2C_SendToSlave(uint16_t slaveAddress, uint8_t slaveRegister, uint8_t slaveData){
-
+	I2c2Bus_Lock();
 	uint8_t commandBuffer[2] = {slaveRegister, slaveData};
-	if(HAL_I2C_Master_Transmit(&hi2c2, slaveAddress, commandBuffer, 2, 1) != HAL_OK){
-		return LCD_Result_Fail;
+	I2C_Result res = LCD_Result_Success;
+	if (HAL_I2C_Master_Transmit(&hi2c2, slaveAddress, commandBuffer, 2, 50) != HAL_OK) {
+		res = LCD_Result_Fail;
 	}
-
-	// DebugPrintln("I2C_Debug: ADDR: %x \t REG: %x \t DATA: %x", slaveAddress, commandBuffer[0], commandBuffer[1]);
-	return LCD_Result_Success;
+	I2c2Bus_Unlock();
+	return res;
 }
 
 
 
 I2C_Result LCD_SendMessage(LCD_ControlByte ct, uint8_t command){
-
+	I2c2Bus_Lock();
 	uint8_t commandBuffer[2] = {0, 0}; // Init with 0
 
 	// create the control word.
@@ -207,17 +260,16 @@ I2C_Result LCD_SendMessage(LCD_ControlByte ct, uint8_t command){
 		}
 	}
 
-	// Send it!
-
-	if(HAL_I2C_Master_Transmit(&hi2c2, LCD_ADDRESS, commandBuffer, 2, 15) != HAL_OK){
-		return LCD_Result_Fail;
+	I2C_Result rc = LCD_Result_Success;
+	if (HAL_I2C_Master_Transmit(&hi2c2, LCD_ADDRESS, commandBuffer, 2, 50) != HAL_OK) {
+		rc = LCD_Result_Fail;
 	}
 	/* HD44780-compatible controllers need extra time for clear/home commands. */
-	if (ct == LCD_CommandByte && (command == 0x01 || command == 0x02)) {
+	if (rc == LCD_Result_Success && ct == LCD_CommandByte && (command == 0x01 || command == 0x02)) {
 		HAL_Delay(2);
 	}
-	return LCD_Result_Success;
-
+	I2c2Bus_Unlock();
+	return rc;
 }
 
 

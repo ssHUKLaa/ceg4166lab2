@@ -32,6 +32,7 @@
 #include "encoder.h"
 #include "motor.h"
 #include "ui.h"
+#include "i2c2_bus.h"
 
 /* USER CODE END Includes */
 
@@ -75,8 +76,32 @@ typedef enum {
 #define ADC_TASK_PERIOD_MS            50U
 #define BUTTON_DEBOUNCE_MS            150U
 #define TOUCH_IRQ_DEBOUNCE_MS         20U
+/** Task3 keypad poll interval — slower than control loop reduces I2C + capacitive chatter */
+#define TOUCH_KEYPAD_POLL_MS          30U
+/** Consecutive identical reads required before accepting a press */
+#define TOUCH_KEY_STABLE_READS        2U
+/** Consecutive idle reads before a new press is allowed (one command per press cycle) */
+#define TOUCH_KEY_IDLE_READS          4U
+/** STOP (key 0) needs more stable samples — release chatter often maps as STOP on MPR121 */
+#define TOUCH_STOP_STABLE_READS       5U
+/** Brief STOP ignore after a preset (finger-lift key-0 glitch on MPR121). Keep short so STOP is not rejected as “stuck motor”. */
+#define TOUCH_STOP_SUPPRESS_MS        90U
+/** Ignore repeat same preset within this window (sensor idle/re-arm flicker while finger down) */
+#define TOUCH_PRESET_DEDUPE_MS        250U
 #define BUZZER_BEEP_MS                50U
-#define CONTROL_EVENT_QUEUE_LENGTH    16U
+#define CONTROL_EVENT_QUEUE_LENGTH    64U
+/** Max control events to apply in one Task2 period (must drain before motor update; keep >= queue length) */
+#define CONTROL_TASK_EVENT_DRAIN_MAX  512U
+/** Ignore user-button control events until this many ticks after Task2 starts (EXTI during boot queued spurious presses) */
+#define BOOT_USER_INPUT_IGNORE_MS       400U
+/** Enable concise runtime trace for touch->control->motor pipeline */
+#define MOTOR_TRACE_UART              1
+/**
+ * If 1: single-byte UART commands simulate the touch keypad (0–3) for testing.
+ * Open a 115200 8N1 terminal on the same virtual COM as print; send '1','2','3','0'.
+ * Set to 0 for lab hand-in builds.
+ */
+#define UART_KEYPAD_SIM               1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -98,21 +123,22 @@ osThreadId_t Task1Handle;
 const osThreadAttr_t Task1_attributes = {
   .name = "Task1",
   .priority = (osPriority_t) osPriorityHigh,
-  .stack_size = 128 * 4
+  .stack_size = 256 * 4   /* 1 KB — motor HAL + FreeRTOS + buzzer SM */
 };
 /* Definitions for Task2 */
 osThreadId_t Task2Handle;
 const osThreadAttr_t Task2_attributes = {
   .name = "Task2",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
+  .stack_size = 512 * 4   /* 2 KB — printf + I2C LCD + FPU float ops */
 };
 /* Definitions for Task3 */
 osThreadId_t Task3Handle;
 const osThreadAttr_t Task3_attributes = {
   .name = "Task3",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
+  /* Same as control task: Low priority starved Task3/I2C touch while Task2 drained long event loops */
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4   /* 1 KB — I2C keypad reads */
 };
 /* Definitions for motorCmdQueue */
 osMessageQueueId_t motorCmdQueueHandle;
@@ -175,6 +201,12 @@ static void LCD_ShowLine2(const char *text);
 static void BuzzerTimerCallback(TimerHandle_t timer);
 static void Buzzer_Beep(void);
 static void ControlEvtSendFromISR(ControlEventType type, uint16_t value);
+static int Touch_MapAt42KeysToIndex(uint8_t raw);
+static int Touch_MapMpr121ToIndex(uint16_t mask);
+static bool Touch_EnqueueControlKey(int key);
+#if UART_KEYPAD_SIM
+static void UartKeypadSim_Poll(void);
+#endif
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -201,55 +233,62 @@ static void Touch_Enable(bool enable)
 
 static bool Touch_Mpr121Init(uint16_t addr)
 {
+  bool ok = false;
+  I2c2Bus_Lock();
   /* MPR121 often powers up in STOP mode; initialize and enable electrodes. */
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_SOFTRESET_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){TOUCH_MPR121_SOFTRESET_CMD}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
 
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_ECR_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){0x00U}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
 
   for (uint8_t electrode = 0; electrode < 12; electrode++) {
     uint8_t regs[2] = { 12U, 6U }; /* touch threshold, release threshold */
     uint8_t reg = (uint8_t)(TOUCH_MPR121_THRESHOLD_BASE + electrode * 2U);
     if (HAL_I2C_Mem_Write(&hi2c2, addr, reg, I2C_MEMADD_SIZE_8BIT, regs, 2, 20) != HAL_OK) {
-      return false;
+      goto out;
     }
   }
 
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_DEBOUNCE_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){0x11U}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_CONFIG1_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){0x10U}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_CONFIG2_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){0x20U}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
   if (HAL_I2C_Mem_Write(&hi2c2, addr, TOUCH_MPR121_ECR_REG, I2C_MEMADD_SIZE_8BIT,
                         (uint8_t[]){TOUCH_MPR121_ECR_RUN_12ELE}, 1, 20) != HAL_OK) {
-    return false;
+    goto out;
   }
 
-  return true;
+  ok = true;
+out:
+  I2c2Bus_Unlock();
+  return ok;
 }
 
 static void Touch_LogI2CScan(void)
 {
   bool any = false;
   printf("[TOUCH] I2C2 scan start\r\n");
+  I2c2Bus_Lock();
   for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
     if (HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(addr << 1), 2, 5) == HAL_OK) {
       printf("[TOUCH] found device @ 0x%02X\r\n", addr);
       any = true;
     }
   }
+  I2c2Bus_Unlock();
   if (!any) {
     printf("[TOUCH] no I2C devices found\r\n");
   }
@@ -262,6 +301,7 @@ static bool Touch_TryAutodetect(void)
   };
   uint8_t data[2] = {0};
 
+  I2c2Bus_Lock();
   if (HAL_I2C_Mem_Read(&hi2c2, TOUCH_AT42QT1070_ADDR, TOUCH_AT42QT1070_CHIP_ID_REG,
                        I2C_MEMADD_SIZE_8BIT, data, 1, 20) == HAL_OK &&
       data[0] == TOUCH_AT42QT1070_CHIP_ID) {
@@ -269,6 +309,7 @@ static bool Touch_TryAutodetect(void)
     touchI2cAddr = TOUCH_AT42QT1070_ADDR;
     touchLastMask = 0xFFFFU;
     printf("[TOUCH] AT42QT1070 detected @ 0x%02X\r\n", TOUCH_AT42QT1070_ADDR >> 1);
+    I2c2Bus_Unlock();
     return true;
   }
 
@@ -280,6 +321,7 @@ static bool Touch_TryAutodetect(void)
       touchI2cAddr = addr;
       touchLastMask = 0xFFFFU;
       printf("[TOUCH] MPR121-like controller detected @ 0x%02X\r\n", addr >> 1);
+      I2c2Bus_Unlock();
       if (Touch_Mpr121Init(addr)) {
         printf("[TOUCH] MPR121 initialized\r\n");
       } else {
@@ -294,6 +336,7 @@ static bool Touch_TryAutodetect(void)
   touchLastMask = 0xFFFFU;
   printf("[TOUCH] controller not detected (tried AT42 0x%02X, MPR121 0x5A-0x5D)\r\n",
          TOUCH_AT42QT1070_ADDR >> 1);
+  I2c2Bus_Unlock();
   return false;
 }
 
@@ -311,16 +354,22 @@ static bool Touch_ReadCommandState(MotorState *stateOut)
   }
 
   if (touchProtocol == TOUCH_PROTO_AT42QT1070) {
+    I2c2Bus_Lock();
     if (HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_AT42QT1070_KEY_REG,
                          I2C_MEMADD_SIZE_8BIT, data, 1, 20) != HAL_OK) {
+      I2c2Bus_Unlock();
       return false;
     }
+    I2c2Bus_Unlock();
     mask = data[0];
   } else if (touchProtocol == TOUCH_PROTO_MPR121) {
+    I2c2Bus_Lock();
     if (HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_MPR121_TOUCH_STATUS_REG,
                          I2C_MEMADD_SIZE_8BIT, data, 2, 20) != HAL_OK) {
+      I2c2Bus_Unlock();
       return false;
     }
+    I2c2Bus_Unlock();
     mask = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
   } else {
     return false;
@@ -446,6 +495,142 @@ static void ControlEvtSendFromISR(ControlEventType type, uint16_t value)
   portYIELD_FROM_ISR(woken);
 }
 
+/**
+ * AT42QT1070: bitmask -> logical key 0–3 (0=STOP). STOP wins if multiple bits.
+ * bit0="1", bit1="2", bit2="3", bit3="0" per shield wiring.
+ */
+static int Touch_MapAt42KeysToIndex(uint8_t raw)
+{
+  uint8_t m = raw & 0x0FU;
+  if (m == 0U) {
+    return -1;
+  }
+  if ((m & (1U << 3)) != 0U) {
+    return 0;
+  }
+  if ((m & (1U << 0)) != 0U) {
+    return 1;
+  }
+  if ((m & (1U << 1)) != 0U) {
+    return 2;
+  }
+  if ((m & (1U << 2)) != 0U) {
+    return 3;
+  }
+  return -1;
+}
+
+/** MPR121: first touched electrode among 0..3 -> keys 0..3 */
+static int Touch_MapMpr121ToIndex(uint16_t mask)
+{
+  uint16_t m = mask & 0x0FFFU;
+  if (m == 0U) {
+    return -1;
+  }
+  for (int i = 0; i < 4; i++) {
+    if ((m & (1U << i)) != 0U) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Queue keypad key to control task. Suppresses STOP right after a preset to avoid
+ * lift-off noise (especially MPR121 electrode 0 → logical key 0).
+ * Drops duplicate speed keys while the sensor re-arms so suppress is not renewed forever.
+ * @return true if the event was queued (caller must only disarm debounce on true).
+ */
+static bool Touch_EnqueueControlKey(int key)
+{
+  static TickType_t suppress_stop_until = 0;
+  static int last_key_sent = -1;
+  static TickType_t last_sent_tick = 0;
+
+  if (key < 0) {
+    return false;
+  }
+  TickType_t now = xTaskGetTickCount();
+  if (key == 0) {
+    if (now < suppress_stop_until) {
+#if MOTOR_TRACE_UART
+      printf("[TRACE] drop key=%d reason=stop_suppress now=%lu until=%lu\r\n",
+             key, (unsigned long)now, (unsigned long)suppress_stop_until);
+#endif
+      return false;
+    }
+  } else if (last_key_sent == key) {
+    TickType_t dt = now - last_sent_tick;
+    if (dt < pdMS_TO_TICKS(TOUCH_PRESET_DEDUPE_MS)) {
+#if MOTOR_TRACE_UART
+      printf("[TRACE] drop key=%d reason=dedupe dt=%lu\r\n",
+             key, (unsigned long)dt);
+#endif
+      return false;
+    }
+  }
+  ControlEvent evt = { CONTROL_EVT_TOUCH_IRQ, (uint16_t)key };
+  if (xQueueSend(controlEventQueue, &evt, pdMS_TO_TICKS(40)) != pdTRUE) {
+#if MOTOR_TRACE_UART
+    printf("[TRACE] drop key=%d reason=queue_full\r\n", key);
+#endif
+    return false;
+  }
+#if MOTOR_TRACE_UART
+  printf("[TRACE] enq key=%d now=%lu\r\n", key, (unsigned long)now);
+#endif
+  if (key != 0) {
+    if (last_key_sent != key && now >= suppress_stop_until) {
+      suppress_stop_until = now + pdMS_TO_TICKS(TOUCH_STOP_SUPPRESS_MS);
+    }
+  } else {
+    suppress_stop_until = 0;
+  }
+  last_key_sent = key;
+  last_sent_tick = now;
+  return true;
+}
+
+#if UART_KEYPAD_SIM
+/** Non-blocking poll: maps ASCII to logical keys 0–3 and uses the same path as touch. */
+static void UartKeypadSim_Poll(void)
+{
+  for (uint8_t n = 0U; n < 16U; n++) {
+    if (!__HAL_UART_GET_FLAG(&hlpuart1, UART_FLAG_RXNE)) {
+      break;
+    }
+    uint8_t ch = (uint8_t)(READ_REG(hlpuart1.Instance->RDR) & 0xFFU);
+    int key = -1;
+    switch (ch) {
+      case '0':
+        key = 0;
+        break;
+      case '1':
+        key = 1;
+        break;
+      case '2':
+        key = 2;
+        break;
+      case '3':
+        key = 3;
+        break;
+      case '?':
+        printf("[SIM] UART keypad: 0=STOP  1/2/3=presets  ?=this help  (CR/LF ignored)\r\n");
+        continue;
+      case '\r':
+      case '\n':
+        continue;
+      default:
+        printf("[SIM] ignored 0x%02X (use 0-3 or ?)\r\n", (unsigned)ch);
+        continue;
+    }
+    if (Touch_EnqueueControlKey(key)) {
+      printf("[SIM] queued touch key %d\r\n", key);
+    }
+  }
+}
+#endif /* UART_KEYPAD_SIM */
+
 /* USER CODE END 0 */
 
 /**
@@ -510,9 +695,14 @@ int main(void)
   printf("[TOUCH] enable polarity: %s\r\n", touchEnableActiveHigh ? "active-high" : "active-low");
   LCD_Init();
   lcdReady = true;
-  setLCD_RGB(32, 32, 32);
+  setLCD_RGB(255, 0, 0);
   printf("[BOOT] LCD initialized\r\n");
+#if UART_KEYPAD_SIM
+  printf("[SIM] UART keypad: type 0-3 or ? (115200, same as printf)\r\n");
+#endif
   /* USER CODE END 2 */
+
+  I2c2Bus_Init();
 
   /* Init scheduler */
   osKernelInitialize();
@@ -833,7 +1023,22 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
+  /* ~20 kHz PWM: TIM1CLK = PCLK2 when APB2 prescaler is 1 (same as HCLK here) */
+  {
+    const uint32_t pwm_hz = 20000U;
+    uint32_t timclk = HAL_RCC_GetPCLK2Freq();
+    uint32_t ticks = timclk / pwm_hz;
+    if (ticks > 0U) {
+      ticks--;
+    }
+    if (ticks > 65535U) {
+      ticks = 65535U;
+    }
+    if (ticks < 3U) {
+      ticks = 3U;
+    }
+    htim1.Init.Period = ticks;
+  }
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -848,7 +1053,7 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
@@ -916,10 +1121,10 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC13 */
+  /*Configure GPIO pin : PC13 (USER button — EXTI) */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PF0 PF1 */
@@ -937,10 +1142,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB0 PB1 PB6 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_6;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  /* PB0/PB1: encoder both edges; PB6: touch INT */
+  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* PB6 touch INT: often open-drain active-low — internal pull-up required for EXTI */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE15 */
@@ -965,16 +1176,21 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-  HAL_NVIC_SetPriority(EXTI13_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI13_IRQn);
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 4, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 4, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
   HAL_NVIC_SetPriority(EXTI6_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI6_IRQn);
+  HAL_NVIC_SetPriority(EXTI13_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(EXTI13_IRQn);
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+/* STM32L5: HAL_GPIO_EXTI_IRQHandler calls Rising/Falling callbacks — not HAL_GPIO_EXTI_Callback. */
+static void GPIO_UserExtiHandler(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == GPIO_PIN_13) {
     GPIO_PinState level = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
@@ -984,17 +1200,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     ControlEvtSendFromISR(CONTROL_EVT_BUTTON_PRESS, (uint16_t)buttonLastLevel);
   }
   else if (GPIO_Pin == GPIO_PIN_0) {
-    /* PB0 - Encoder Channel A */
     Encoder_ISR_ChannelA();
   }
   else if (GPIO_Pin == GPIO_PIN_1) {
-    /* PB1 - Encoder Channel B */
     Encoder_ISR_ChannelB();
   }
   else if (GPIO_Pin == TOUCH_INT_Pin) {
+    /* Only count for diagnostics; keypad commands come from Task3 I2C poll.
+     * Do NOT queue CONTROL_EVT_TOUCH_IRQ here — value 0 is STOP in Task2, and
+     * INT toggles on every edge while a key is held, which floods STOP and
+     * breaks speed presets and STOP from the keypad. */
     touchIrqCount++;
-    ControlEvtSendFromISR(CONTROL_EVT_TOUCH_IRQ, 0U);
   }
+}
+
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
+{
+  GPIO_UserExtiHandler(GPIO_Pin);
+}
+
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+{
+  GPIO_UserExtiHandler(GPIO_Pin);
 }
 
 /* USER CODE END 4 */
@@ -1054,11 +1281,22 @@ void StartTask2(void *argument)
   uint16_t targetRPM = 0;
   uint16_t measuredRPM = 0;
   MotorCommand motorCmd;
+  MotorCommand lastSentCmd = { MOTOR_STOP, 0 };
+  uint16_t lastTargetRPM = 0xFFFFU;
   TickType_t lastWakeTime = xTaskGetTickCount();
   uint32_t ticksPerPeriod = (CONTROL_TASK_PERIOD_MS * configTICK_RATE_HZ) / 1000;
   
   Encoder_Init();     /* Initialize encoder ISR capture */
   UI_Init();          /* Initialize LCD and buzzer */
+
+  /* Drop any keypad/button events that piled up before the scheduler ran Task2 */
+  {
+    ControlEvent stale;
+    while (xQueueReceive(controlEventQueue, &stale, 0) == pdTRUE) {
+    }
+  }
+  const TickType_t controlReadyTick =
+      xTaskGetTickCount() + pdMS_TO_TICKS(BOOT_USER_INPUT_IGNORE_MS);
   
   for(;;)
   {
@@ -1066,20 +1304,31 @@ void StartTask2(void *argument)
     Encoder_Update();
     measuredRPM = Encoder_GetRPM();
     
-    /* Process user input events (keypad) */
-    ControlEvent event;
-    if (xQueueReceive(controlEventQueue, &event, 0) == pdTRUE) {
-      switch (event.type) {
+    /* Process all pending keypad/button events so STOP is not stuck behind a backlog */
+    for (uint16_t ev_n = 0U; ev_n < CONTROL_TASK_EVENT_DRAIN_MAX; ev_n++) {
+      ControlEvent event;
+      if (xQueueReceive(controlEventQueue, &event, 0) != pdTRUE) {
+        break;
+      }
+      if (event.type == CONTROL_EVT_BUTTON_PRESS &&
+          xTaskGetTickCount() < controlReadyTick) {
+        /* Spurious blue-button edges during power-up */
+      } else switch (event.type) {
         case CONTROL_EVT_BUTTON_PRESS:
           /* Button press cycles state: STOP -> CW -> CCW -> STOP */
           targetRPM = (targetRPM == 0) ? speedPresets.low_rpm : 0;
+#if MOTOR_TRACE_UART
+          printf("[TRACE] evt=button target=%u\r\n", (unsigned)targetRPM);
+#endif
           break;
         case CONTROL_EVT_TOUCH_IRQ:
           /* Keypad event - parse key value (0-3) */
+#if MOTOR_TRACE_UART
+          printf("[TRACE] evt=touch key=%u\r\n", (unsigned)event.value);
+#endif
           switch (event.value) {
             case 0:
-              targetRPM = 0;  /* STOP */
-              UI_TriggerBuzzer(1);
+              targetRPM = 0;  /* STOP — no preset beeps (Lab 4) */
               break;
             case 1:
               targetRPM = speedPresets.low_rpm;
@@ -1101,7 +1350,18 @@ void StartTask2(void *argument)
           break;
       }
     }
-    
+
+    /* Reset PI integral whenever the speed target changes to prevent overshoot
+     * from integral carryover on the new setpoint. */
+    if (targetRPM != lastTargetRPM) {
+      Motor_ResetController();
+      lastTargetRPM = targetRPM;
+#if MOTOR_TRACE_UART
+      printf("[TRACE] target change=%u measured=%u\r\n",
+             (unsigned)targetRPM, (unsigned)measuredRPM);
+#endif
+    }
+
     /* Closed-loop control: compute and apply motor command */
     if (targetRPM == 0) {
       motorCmd.state = MOTOR_STOP;
@@ -1113,8 +1373,17 @@ void StartTask2(void *argument)
       motorCmd.duty_percent = Motor_ComputePWM_P(error);
     }
     
-    /* Send command to motor task */
-    xQueueSend(motorCmdQueue, &motorCmd, 0);
+    /* Latest command wins (queue depth 1 — avoids a full queue dropping STOP / new duty) */
+    (void)xQueueOverwrite(motorCmdQueue, &motorCmd);
+#if MOTOR_TRACE_UART
+    if (motorCmd.state != lastSentCmd.state ||
+        motorCmd.duty_percent != lastSentCmd.duty_percent) {
+      printf("[TRACE] cmd state=%d duty=%u target=%u measured=%u\r\n",
+             (int)motorCmd.state, (unsigned)motorCmd.duty_percent,
+             (unsigned)targetRPM, (unsigned)measuredRPM);
+      lastSentCmd = motorCmd;
+    }
+#endif
     
     /* Update LCD display with target and measured speed */
     UI_DisplaySpeed(targetRPM, measuredRPM);
@@ -1138,51 +1407,158 @@ void StartTask2(void *argument)
 void StartTask3(void *argument)
 {
   /* USER CODE BEGIN StartTask3 */
-  uint8_t keyBuffer[16];  /* Temp buffer for I2C keypad reads */
+  uint8_t keyBuffer[16];
   TickType_t lastWakeTime = xTaskGetTickCount();
-  uint32_t ticksPerPeriod = (TOUCH_DEBOUNCE_MS * configTICK_RATE_HZ) / 1000;
-  
-  for(;;)
+  uint32_t ticksPerPeriod = (TOUCH_KEYPAD_POLL_MS * configTICK_RATE_HZ) / 1000;
+  static uint8_t autodetect_slow_ticks = 0U;
+  /* AT42: one logical press per finger-down/up cycle, filtered capacitive noise */
+  static bool at42_armed = true;
+  static uint8_t at42_stable_cnt = 0U;
+  static uint8_t at42_cand = 0U;
+  static uint8_t at42_idle_cnt = 0U;
+  static int at42_last_enq_key = -1;
+  /* MPR121: same debounce pattern */
+  static bool mpr_armed = true;
+  static uint8_t mpr_stable_cnt = 0U;
+  static uint16_t mpr_cand = 0U;
+  static uint8_t mpr_idle_cnt = 0U;
+  static int mpr_last_enq_key = -1;
+
+  for (;;)
   {
-    /* Periodically poll keypad (debouncing) */
-    /* This is simplified - in practice, use proper keypad driver */
-    
-    /* For now, just monitor touch IRQ count and handle it */
-    if (touchIrqCount > 0) {
-      touchIrqCount = 0;
-      
-      /* Try to read keypad data via I2C */
-      if (touchProtocol == TOUCH_PROTO_AT42QT1070) {
-        /* Read AT42QT1070 key register */
-        if (HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_AT42QT1070_KEY_REG,
-                             I2C_MEMADD_SIZE_8BIT, keyBuffer, 1, 10) == HAL_OK) {
-          uint8_t keys = keyBuffer[0];
-          /* Parse key: bit 0=key1, bit 1=key2, bit 2=key3, bit 3=key0 */
-          ControlEvent evt = { CONTROL_EVT_TOUCH_IRQ, keys };
-          xQueueSend(controlEventQueue, &evt, 0);
+#if UART_KEYPAD_SIM
+    UartKeypadSim_Poll();
+#endif
+    if (touchIrqCount > 0U) {
+      touchIrqCount = 0U;
+    }
+
+    if (touchProtocol == TOUCH_PROTO_NONE) {
+      if (++autodetect_slow_ticks >= 25U) {
+        autodetect_slow_ticks = 0U;
+        (void)Touch_TryAutodetect();
+      }
+    } else {
+      autodetect_slow_ticks = 0U;
+    }
+
+    if (touchProtocol == TOUCH_PROTO_AT42QT1070 && touchI2cAddr != 0U) {
+      I2c2Bus_Lock();
+      HAL_StatusTypeDef at42_read_st =
+          HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_AT42QT1070_KEY_REG,
+                           I2C_MEMADD_SIZE_8BIT, keyBuffer, 1U, 25U);
+      I2c2Bus_Unlock();
+      if (at42_read_st == HAL_OK) {
+        uint8_t raw = (uint8_t)(keyBuffer[0] & 0x7FU);
+        if (raw == 0U) {
+          at42_idle_cnt++;
+          at42_stable_cnt = 0U;
+          at42_cand = 0U;
+          if (at42_idle_cnt >= TOUCH_KEY_IDLE_READS) {
+            at42_armed = true;
+            at42_idle_cnt = TOUCH_KEY_IDLE_READS;
+          }
+        } else {
+          at42_idle_cnt = 0U;
+          /* After a fire we clear armed; if the panel never hits all-off between keys,
+           * we would ignore every other pad until idle — re-open debounce on *key change*. */
+          if (!at42_armed) {
+            int ck = Touch_MapAt42KeysToIndex(raw);
+            if (ck >= 0 && ck != at42_last_enq_key) {
+              at42_armed = true;
+              at42_cand = raw;
+              at42_stable_cnt = 1U;
+            }
+          }
+          if (at42_armed) {
+            if (raw == at42_cand) {
+              if (at42_stable_cnt < 255U) {
+                at42_stable_cnt++;
+              }
+            } else {
+              at42_cand = raw;
+              at42_stable_cnt = 1U;
+            }
+            {
+              int key = Touch_MapAt42KeysToIndex(at42_cand);
+              uint8_t need_reads =
+                  (key == 0) ? TOUCH_STOP_STABLE_READS : TOUCH_KEY_STABLE_READS;
+              if (key >= 0 && at42_stable_cnt >= need_reads) {
+                if (Touch_EnqueueControlKey(key)) {
+                  at42_last_enq_key = key;
+                  at42_armed = false;
+                  at42_stable_cnt = 0U;
+                }
+              } else if (key < 0 && at42_stable_cnt >= TOUCH_KEY_STABLE_READS) {
+                at42_armed = false;
+                at42_stable_cnt = 0U;
+              }
+            }
+          }
         }
-      } else if (touchProtocol == TOUCH_PROTO_MPR121) {
-        /* Read MPR121 touch status registers */
-        if (HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_MPR121_TOUCH_STATUS_REG,
-                             I2C_MEMADD_SIZE_8BIT, keyBuffer, 2, 10) == HAL_OK) {
-          uint16_t mask = (uint16_t)keyBuffer[0] | ((uint16_t)keyBuffer[1] << 8);
-          /* Parse keys from electrode mask and send event */
-          ControlEvent evt = { CONTROL_EVT_TOUCH_IRQ, (uint16_t)(mask & 0x0F) };
-          if (mask != 0) {
-            xQueueSend(controlEventQueue, &evt, 0);
+      }
+    } else if (touchProtocol == TOUCH_PROTO_MPR121 && touchI2cAddr != 0U) {
+      I2c2Bus_Lock();
+      HAL_StatusTypeDef mpr_read_st =
+          HAL_I2C_Mem_Read(&hi2c2, touchI2cAddr, TOUCH_MPR121_TOUCH_STATUS_REG,
+                           I2C_MEMADD_SIZE_8BIT, keyBuffer, 2U, 25U);
+      I2c2Bus_Unlock();
+      if (mpr_read_st == HAL_OK) {
+        uint16_t mask = (uint16_t)keyBuffer[0] | ((uint16_t)keyBuffer[1] << 8);
+        mask &= 0x0FFFU;
+        if (mask == 0U) {
+          mpr_idle_cnt++;
+          mpr_stable_cnt = 0U;
+          mpr_cand = 0U;
+          if (mpr_idle_cnt >= TOUCH_KEY_IDLE_READS) {
+            mpr_armed = true;
+            mpr_idle_cnt = TOUCH_KEY_IDLE_READS;
+          }
+        } else {
+          mpr_idle_cnt = 0U;
+          if (!mpr_armed) {
+            int ck = Touch_MapMpr121ToIndex(mask);
+            if (ck >= 0 && ck != mpr_last_enq_key) {
+              mpr_armed = true;
+              mpr_cand = mask;
+              mpr_stable_cnt = 1U;
+            }
+          }
+          if (mpr_armed) {
+            if (mask == mpr_cand) {
+              if (mpr_stable_cnt < 255U) {
+                mpr_stable_cnt++;
+              }
+            } else {
+              mpr_cand = mask;
+              mpr_stable_cnt = 1U;
+            }
+            {
+              int key = Touch_MapMpr121ToIndex(mpr_cand);
+              uint8_t need_reads =
+                  (key == 0) ? TOUCH_STOP_STABLE_READS : TOUCH_KEY_STABLE_READS;
+              if (key >= 0 && mpr_stable_cnt >= need_reads) {
+                if (Touch_EnqueueControlKey(key)) {
+                  mpr_last_enq_key = key;
+                  mpr_armed = false;
+                  mpr_stable_cnt = 0U;
+                }
+              } else if (key < 0 && mpr_stable_cnt >= TOUCH_KEY_STABLE_READS) {
+                mpr_armed = false;
+                mpr_stable_cnt = 0U;
+              }
+            }
           }
         }
       }
     }
-    
-    /* Check button press */
+
     if (buttonIrqCount > 0) {
       buttonIrqCount = 0;
       ControlEvent evt = { CONTROL_EVT_BUTTON_PRESS, 0 };
-      xQueueSend(controlEventQueue, &evt, 0);
+      (void)xQueueSend(controlEventQueue, &evt, 0);
     }
-    
-    /* Periodic delay for debouncing */
+
     vTaskDelayUntil(&lastWakeTime, ticksPerPeriod);
     countTask3++;
   }
