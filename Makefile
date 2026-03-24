@@ -41,7 +41,11 @@ Core/Src/stm32l5xx_it.c \
 Core/Src/stm32l5xx_hal_msp.c \
 Core/Src/system_stm32l5xx.c \
 Core/Src/syscalls.c \
-Core/Src/sysmem.c
+Core/Src/sysmem.c \
+Core/Src/encoder.c \
+Core/Src/motor.c \
+Core/Src/ui.c \
+Core/Src/lcd.c
 
 # HAL Driver sources
 HAL_SOURCES = \

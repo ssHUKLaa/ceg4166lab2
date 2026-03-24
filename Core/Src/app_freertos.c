@@ -24,7 +24,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "encoder.h"
+#include "motor.h"
+#include "ui.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

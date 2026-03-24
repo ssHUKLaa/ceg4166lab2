@@ -20,8 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l5xx_it.h"
-#include "FreeRTOS.h"
-#include "task.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -57,8 +55,8 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_adc1;
-extern ADC_HandleTypeDef hadc1;
+extern TIM_HandleTypeDef htim6;
+
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -162,87 +160,17 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles EXTI line2 interrupt.
+  * @brief This function handles TIM6 global interrupt.
   */
-void EXTI2_IRQHandler(void)
+void TIM6_IRQHandler(void)
 {
-  /* USER CODE BEGIN EXTI2_IRQn 0 */
+  /* USER CODE BEGIN TIM6_IRQn 0 */
 
-  /* USER CODE END EXTI2_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
-  /* USER CODE BEGIN EXTI2_IRQn 1 */
+  /* USER CODE END TIM6_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim6);
+  /* USER CODE BEGIN TIM6_IRQn 1 */
 
-  /* USER CODE END EXTI2_IRQn 1 */
-}
-
-/**
-  * @brief This function handles EXTI line6 interrupt.
-  */
-void EXTI6_IRQHandler(void)
-{
-  /* USER CODE BEGIN EXTI6_IRQn 0 */
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	UIEvent_t evt;
-
-	if (GPIO_Pin == GPIO_PIN_6)  // Touch interrupt
-	{
-		evt = UI_EVT_TOUCH_IRQ;
-		osMessageQueuePutFromISR(uiQueueHandle, &evt, &xHigherPriorityTaskWoken);
-	}
-	else if (GPIO_Pin == GPIO_PIN_2) // E-STOP
-	{
-		evt = UI_EVT_ESTOP;
-		osMessageQueuePutFromISR(uiQueueHandle, &evt, &xHigherPriorityTaskWoken);
-	}
-
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-  /* USER CODE END EXTI6_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6);
-  /* USER CODE BEGIN EXTI6_IRQn 1 */
-
-  /* USER CODE END EXTI6_IRQn 1 */
-}
-
-/**
-  * @brief This function handles EXTI line13 interrupt.
-  */
-void EXTI13_IRQHandler(void)
-{
-  /* USER CODE BEGIN EXTI13_IRQn 0 */
-
-  /* USER CODE END EXTI13_IRQn 0 */
-  HAL_EXTI_IRQHandler(&H_EXTI_13);
-  /* USER CODE BEGIN EXTI13_IRQn 1 */
-
-  /* USER CODE END EXTI13_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA1 channel1 global interrupt.
-  */
-void DMA1_Channel1_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel1_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_adc1);
-  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel1_IRQn 1 */
-}
-
-/**
-  * @brief This function handles ADC1 and ADC2 interrupts.
-  */
-void ADC1_2_IRQHandler(void)
-{
-  /* USER CODE BEGIN ADC1_2_IRQn 0 */
-
-  /* USER CODE END ADC1_2_IRQn 0 */
-  HAL_ADC_IRQHandler(&hadc1);
-  /* USER CODE BEGIN ADC1_2_IRQn 1 */
-
-  /* USER CODE END ADC1_2_IRQn 1 */
+  /* USER CODE END TIM6_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
