@@ -1,3 +1,37 @@
+#include "main.h"
+#include "cmsis_os.h"
+#include <stdio.h>
+
+// Emergency flag
+volatile uint8_t g_emergency_active = 0;
+
+// Safety task handle and attributes
+osThreadId_t SafetyTaskHandle;
+const osThreadAttr_t SafetyTask_attributes = {
+  .name = "SafetyTask",
+  .priority = (osPriority_t) osPriorityRealtime,
+  .stack_size = 256 * 4
+};
+
+// PIR event notification bit
+#define PIR_EVENT_BIT    (1UL << 0)
+static osThreadId_t s_safetyTaskId = NULL;
+
+// Forward declaration
+void StartSafetyTask(void *argument);
+
+// EXTI callback for PIR (PB9)
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  if (GPIO_Pin == PIR_GPIO_PIN) {
+    // Only trigger on rising edge (motion detected)
+    if (HAL_GPIO_ReadPin(PIR_GPIO_PORT, PIR_GPIO_PIN) == GPIO_PIN_SET) {
+      g_emergency_active = 1;
+      if (s_safetyTaskId) {
+        osThreadFlagsSet(s_safetyTaskId, PIR_EVENT_BIT);
+      }
+    }
+  }
+}
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -668,6 +702,16 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+
+  // Initialize PIR pin (PB9) as input with EXTI
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  GPIO_InitStruct.Pin = PIR_GPIO_PIN;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL; // Or PULLDOWN if needed
+  HAL_GPIO_Init(PIR_GPIO_PORT, &GPIO_InitStruct);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
   printf("From main: Welcome to STM32 world !\r\n");
   printf("[BOOT] Lab3 init start\r\n");
   if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
@@ -749,6 +793,30 @@ int main(void)
 
   /* creation of Task3 */
   Task3Handle = osThreadNew(StartTask3, NULL, &Task3_attributes);
+
+  /* creation of SafetyTask (highest priority) */
+  SafetyTaskHandle = osThreadNew(StartSafetyTask, NULL, &SafetyTask_attributes);
+  s_safetyTaskId = SafetyTaskHandle;
+// Safety Task implementation (waits for PIR EXTI event)
+void StartSafetyTask(void *argument)
+{
+  (void)argument;
+  for (;;) {
+    // Wait for PIR EXTI event (thread flag)
+    osThreadFlagsWait(PIR_EVENT_BIT, osFlagsWaitAny, osWaitForever);
+    // Emergency triggered (already set by ISR)
+    Motor_Stop();
+    // Set LEDs: only red ON in EMERGENCY (demo/report requirement)
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET); // Red ON
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // Red ON (alt)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET); // Green OFF
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET); // Blue OFF
+    // Start continuous buzzer alarm (handled in UI task)
+    UI_DisplayState(MOTOR_EMERGENCY);
+    printf("[SAFETY] PIR emergency triggered!\r\n");
+    // Remain in EMERGENCY until re-armed (handled elsewhere)
+  }
+}
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1303,7 +1371,35 @@ void StartTask2(void *argument)
     /* Update encoder speed estimate every 50 ms */
     Encoder_Update();
     measuredRPM = Encoder_GetRPM();
-    
+
+    /* EMERGENCY state: block all normal commands, only allow re-arm */
+    if (g_emergency_active) {
+      // Only process keypad STOP (key 0) as re-arm
+      for (uint16_t ev_n = 0U; ev_n < CONTROL_TASK_EVENT_DRAIN_MAX; ev_n++) {
+        ControlEvent event;
+        if (xQueueReceive(controlEventQueue, &event, 0) != pdTRUE) {
+          break;
+        }
+        if (event.type == CONTROL_EVT_TOUCH_IRQ && event.value == 0) {
+          // Key 0 pressed: re-arm system
+          g_emergency_active = 0;
+          targetRPM = 0;
+          Motor_Stop();
+          UI_TriggerBuzzer(2); // Confirmation beep
+          UI_DisplayState(MOTOR_STOP);
+          printf("[SAFETY] System re-armed by keypad.\r\n");
+        }
+      }
+      // Always force STOP in EMERGENCY
+      targetRPM = 0;
+      Motor_Stop();
+      UI_DisplayState(MOTOR_EMERGENCY);
+      UI_TriggerBuzzer(5); // Keep alarm active (optional: make periodic)
+      vTaskDelayUntil(&lastWakeTime, ticksPerPeriod);
+      countTask2++;
+      continue;
+    }
+
     /* Process all pending keypad/button events so STOP is not stuck behind a backlog */
     for (uint16_t ev_n = 0U; ev_n < CONTROL_TASK_EVENT_DRAIN_MAX; ev_n++) {
       ControlEvent event;

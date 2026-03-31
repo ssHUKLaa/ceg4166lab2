@@ -40,11 +40,23 @@ extern "C" {
 /* USER CODE BEGIN ET */
 
 /* Motor control types */
+
+// Motor states, now includes EMERGENCY
 typedef enum {
   MOTOR_STOP = 0,
   MOTOR_CW = 1,
-  MOTOR_CCW = 2
+  MOTOR_CCW = 2,
+  MOTOR_EMERGENCY = 3
 } MotorState;
+// PIR sensor pin definition
+#define PIR_GPIO_PORT GPIOB
+#define PIR_GPIO_PIN  GPIO_PIN_9
+
+// Emergency flag (global, extern for use in main.c and tasks)
+extern volatile uint8_t g_emergency_active;
+
+// Safety task prototype
+void StartSafetyTask(void *argument);
 
 typedef struct {
   MotorState state;

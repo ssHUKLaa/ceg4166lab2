@@ -127,12 +127,17 @@ void UI_DisplayState(MotorState state)
     case MOTOR_CCW:
       snprintf(line, sizeof(line), "State: CCW      ");
       break;
+    case MOTOR_EMERGENCY:
+      snprintf(line, sizeof(line), "!!! EMERGENCY !!!");
+      break;
     default:
       snprintf(line, sizeof(line), "State: Unknown  ");
       break;
   }
-  
   LCD_DisplayText(line, FIRST_LINE);
+  if (state == MOTOR_EMERGENCY) {
+    LCD_DisplayText("STOPPED - PIR TRIP", SECOND_LINE);
+  }
 }
 
 /**
@@ -161,22 +166,39 @@ void UI_TriggerBuzzer(uint8_t beep_count)
  */
 void UI_ProcessBuzzer(void)
 {
+  // Emergency: continuous periodic alarm if g_emergency_active
+  if (g_emergency_active) {
+    static uint32_t emg_timer = 0;
+    static uint8_t emg_on = 0;
+    if (emg_on) {
+      HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
+      emg_timer += 10;
+      if (emg_timer >= 200) { // 200ms ON
+        emg_on = 0;
+        emg_timer = 0;
+        HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
+      }
+    } else {
+      emg_timer += 10;
+      if (emg_timer >= 300) { // 300ms OFF
+        emg_on = 1;
+        emg_timer = 0;
+      }
+    }
+    return;
+  }
+  // ...existing code...
   switch (buzzer.state) {
     case BUZZER_IDLE:
       /* Nothing to do */
       break;
-      
     case BUZZER_ON:
-      /* Count down beep duration */
       if (buzzer.beep_timer_ms >= 10) {
         buzzer.beep_timer_ms -= 10;
       } else {
-        /* End of beep */
         buzzer.beep_timer_ms = BUZZER_GAP_MS;
         buzzer.beeps_done++;
         HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-        
-        /* Check if all beeps done */
         if (buzzer.beeps_done >= buzzer.total_beeps) {
           buzzer.state = BUZZER_IDLE;
         } else {
@@ -184,13 +206,10 @@ void UI_ProcessBuzzer(void)
         }
       }
       break;
-      
     case BUZZER_GAP:
-      /* Count down gap between beeps */
       if (buzzer.beep_timer_ms >= 10) {
         buzzer.beep_timer_ms -= 10;
       } else {
-        /* Start next beep */
         buzzer.beep_timer_ms = BUZZER_BEEP_MS;
         buzzer.state = BUZZER_ON;
         HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
