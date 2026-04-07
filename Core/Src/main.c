@@ -17,6 +17,15 @@ const osThreadAttr_t SafetyTask_attributes = {
 #define PIR_EVENT_BIT    (1UL << 0)
 static osThreadId_t s_safetyTaskId = NULL;
 
+static void PIR_HandleMotionEvent(void)
+{
+  g_emergency_active = 1;
+  printf("[PIR] motion detected\r\n");
+  if (s_safetyTaskId) {
+    osThreadFlagsSet(s_safetyTaskId, PIR_EVENT_BIT);
+  }
+}
+
 // Forward declaration
 void StartSafetyTask(void *argument);
 
@@ -25,11 +34,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == PIR_GPIO_PIN) {
     // Only trigger on rising edge (motion detected)
     if (HAL_GPIO_ReadPin(PIR_GPIO_PORT, PIR_GPIO_PIN) == GPIO_PIN_SET) {
-      g_emergency_active = 1;
-      if (s_safetyTaskId) {
-        osThreadFlagsSet(s_safetyTaskId, PIR_EVENT_BIT);
-      }
+      PIR_HandleMotionEvent();
     }
+  }
+}
+
+// Safety Task implementation (waits for PIR EXTI event)
+void StartSafetyTask(void *argument)
+{
+  (void)argument;
+  for (;;) {
+    // Wait for PIR EXTI event (thread flag)
+    osThreadFlagsWait(PIR_EVENT_BIT, osFlagsWaitAny, osWaitForever);
+    // Emergency triggered (already set by ISR)
+    Motor_Stop();
+    // Set LEDs: only red ON in EMERGENCY (demo/report requirement)
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET); // Red ON
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // Red ON (alt)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET); // Green OFF
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET); // Blue OFF
+    // Start continuous buzzer alarm (handled in UI task)
+    UI_DisplayState(MOTOR_EMERGENCY);
+    printf("[SAFETY] PIR emergency triggered!\r\n");
+    // Remain in EMERGENCY until re-armed (handled elsewhere)
   }
 }
 /* USER CODE BEGIN Header */
@@ -710,8 +737,8 @@ int main(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL; // Or PULLDOWN if needed
   HAL_GPIO_Init(PIR_GPIO_PORT, &GPIO_InitStruct);
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  HAL_NVIC_SetPriority(EXTI9_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_IRQn);
   printf("From main: Welcome to STM32 world !\r\n");
   printf("[BOOT] Lab3 init start\r\n");
   if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
@@ -797,26 +824,6 @@ int main(void)
   /* creation of SafetyTask (highest priority) */
   SafetyTaskHandle = osThreadNew(StartSafetyTask, NULL, &SafetyTask_attributes);
   s_safetyTaskId = SafetyTaskHandle;
-// Safety Task implementation (waits for PIR EXTI event)
-void StartSafetyTask(void *argument)
-{
-  (void)argument;
-  for (;;) {
-    // Wait for PIR EXTI event (thread flag)
-    osThreadFlagsWait(PIR_EVENT_BIT, osFlagsWaitAny, osWaitForever);
-    // Emergency triggered (already set by ISR)
-    Motor_Stop();
-    // Set LEDs: only red ON in EMERGENCY (demo/report requirement)
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET); // Red ON
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // Red ON (alt)
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET); // Green OFF
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET); // Blue OFF
-    // Start continuous buzzer alarm (handled in UI task)
-    UI_DisplayState(MOTOR_EMERGENCY);
-    printf("[SAFETY] PIR emergency triggered!\r\n");
-    // Remain in EMERGENCY until re-armed (handled elsewhere)
-  }
-}
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1272,6 +1279,11 @@ static void GPIO_UserExtiHandler(uint16_t GPIO_Pin)
   }
   else if (GPIO_Pin == GPIO_PIN_1) {
     Encoder_ISR_ChannelB();
+  }
+  else if (GPIO_Pin == PIR_GPIO_PIN) {
+    if (HAL_GPIO_ReadPin(PIR_GPIO_PORT, PIR_GPIO_PIN) == GPIO_PIN_SET) {
+      PIR_HandleMotionEvent();
+    }
   }
   else if (GPIO_Pin == TOUCH_INT_Pin) {
     /* Only count for diagnostics; keypad commands come from Task3 I2C poll.
